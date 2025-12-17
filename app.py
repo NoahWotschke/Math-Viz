@@ -25,6 +25,14 @@ from heat2d.domains.base import Grid as DomainGrid
 from heat2d.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
 from heat2d.bc.builder import build_bc_from_spec
 
+# Configure Streamlit for better performance
+st.set_page_config(
+    page_title="Math-Viz: PDE Visualizer",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 # Initialize session state for stop button
 if "is_animating" not in st.session_state:
     st.session_state.is_animating = False
@@ -638,7 +646,7 @@ with col4:
     alternate = st.checkbox(
         "Toggle alternate BC", False, help="Switch between two boundary conditions"
     )
-    res = st.slider("Grid resolution", 21, 101, 21, 10, help="Points per unit length")
+    res = st.slider("Grid resolution", 15, 50, 21, 5, help="Points per unit length (lower = faster on cloud)")
     deg_per_sec = st.slider(
         "Rotation speed (deg/sec)",
         1.0,
@@ -648,7 +656,7 @@ with col4:
         help="Only if Rotate view is on",
     )
     cycles_per_cycle = st.slider(
-        "Steps per cycle", 200, 10000, 2000, 200, help="Time steps per full cycle"
+        "Steps per cycle", 200, 10000, 1000, 200, help="Time steps per full cycle"
     )
 
 # Run button

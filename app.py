@@ -224,7 +224,7 @@ def run_solver_streamlit(
     # Figure setup - optimized for web
     aspect_xy = max(Lx_grid / Ly_grid, Ly_grid / Lx_grid)
     aspect_xy = 1.15 ** np.sqrt(aspect_xy)
-    base_w, base_h = 12, 5  # Smaller for faster rendering
+    base_w, base_h = 16, 6.5  # Larger window
     fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy), dpi=80)  # Lower DPI for web
     fig.subplots_adjust(top=0.8)
 

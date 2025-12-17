@@ -324,7 +324,7 @@ def run_solver_streamlit(
     # Animation loop
     t = 0.0
     start_time = time.time()
-    render_skip = 2  # Redraw surface every 2 frames (web optimization)
+    render_skip = 3  # Only calculate and redraw surface every 3 frames (web optimization)
     frame_count = 0
 
     def update(frame):
@@ -355,7 +355,8 @@ def run_solver_streamlit(
             wf_pos.set_visible(True)
             wf_neg.set_visible(False)
 
-        # Update surface only every N frames (web optimization)
+        # Calculate and update surface only every N frames (web optimization)
+        # This skips both the computation of plot_surface and the rendering
         frame_count += 1
         if frame_count % render_skip == 0:
             assert heat_solver.X is not None and heat_solver.Y is not None

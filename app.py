@@ -25,6 +25,9 @@ from heat2d.domains.base import Grid as DomainGrid
 from heat2d.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
 from heat2d.bc.builder import build_bc_from_spec
 
+# Streamlit page config for performance
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
+
 # Initialize session state for stop button
 if "is_animating" not in st.session_state:
     st.session_state.is_animating = False
@@ -122,6 +125,11 @@ def run_solver_streamlit(
     cmap,
 ):
     """Run heat equation solver and display animation in matplotlib window."""
+    
+    # Optimize for web: reduce quality/resolution
+    res = min(res, 25)  # Cap resolution for web performance
+    steps_per_frame = min(steps_per_frame, 10)  # Reduce computation per frame
+    n_terms = min(n_terms, 100)  # Reduce analytical series terms
 
     # Set domain dimensions
     Lx_grid = Lx
@@ -140,13 +148,13 @@ def run_solver_streamlit(
     dx = x[1] - x[0] if Nx > 1 else 1.0
     dy = y[1] - y[0] if Ny > 1 else 1.0
     X, Y = np.meshgrid(x, y, indexing="xy")
-    st.info(f"Adjusted grid resolution to {Nx} × {Ny}")
+    st.info(f"Web-optimized grid: {Nx} × {Ny} | Resolution capped for performance")
 
     # Adjust line spacing in wireframe/surface based on grid resolution
-    wire_kwargs["ccount"] = 0.2 * Nx
-    wire_kwargs["rcount"] = 0.2 * Ny
-    surf_kwargs["ccount"] = 0.2 * Nx
-    surf_kwargs["rcount"] = 0.2 * Ny
+    wire_kwargs["ccount"] = max(0.2 * Nx, 2)
+    wire_kwargs["rcount"] = max(0.2 * Ny, 2)
+    surf_kwargs["ccount"] = max(0.2 * Nx, 2)
+    surf_kwargs["rcount"] = max(0.2 * Ny, 2)
 
     # Boundary conditions - use new build_bc_from_spec approach
     f_left_pos = build_bc_from_spec(left_spec, Ly_grid, bc)
@@ -213,11 +221,11 @@ def run_solver_streamlit(
     surf_kwargs["vmin"] = -absmax
     surf_kwargs["vmax"] = absmax
 
-    # Figure setup
+    # Figure setup - optimized for web
     aspect_xy = max(Lx_grid / Ly_grid, Ly_grid / Lx_grid)
     aspect_xy = 1.15 ** np.sqrt(aspect_xy)
-    base_w, base_h = 16, 6.5  # Larger for better browser rendering
-    fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy))
+    base_w, base_h = 12, 5  # Smaller for faster rendering
+    fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy), dpi=80)  # Lower DPI for web
     fig.subplots_adjust(top=0.8)
 
     ax_num = fig.add_subplot(1, 2, 1, projection="3d")

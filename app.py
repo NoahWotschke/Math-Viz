@@ -365,14 +365,15 @@ def run_solver_streamlit(
         # Get current solution (after array swap in step_once)
         u_current = heat_solver.u_curr
 
-        # Update phase and boundary lines if needed
-        assert heat_solver.x is not None and heat_solver.y is not None
-        heat_solver.update_phase_and_lines(
-            boundary_lines,
-            heat_solver.y,
-            heat_solver.x,
-            height_scale,
-        )
+        # Update phase and boundary lines if needed (only if showing analytic)
+        if show_analytic:
+            assert heat_solver.x is not None and heat_solver.y is not None
+            heat_solver.update_phase_and_lines(
+                boundary_lines,
+                heat_solver.y,
+                heat_solver.x,
+                height_scale,
+            )
 
         # Switch between wireframes if phase changed (only if showing analytic)
         if show_analytic and wf_pos is not None and wf_neg is not None:

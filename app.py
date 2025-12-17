@@ -326,14 +326,22 @@ def run_solver_streamlit(
     t = 0.0
     start_time = time.time()
     frame_count = 0
+    solver_skip = 2  # Only run solver every 2 frames on web (huge performance boost)
+    assert heat_solver.u_curr is not None
+    u_prev = heat_solver.u_curr.copy()
 
     def update(frame):
-        nonlocal u, u_new, t, surf, frame_count
+        nonlocal u, u_new, t, surf, frame_count, u_prev
 
-        for _ in range(steps_per_frame):
-            heat_solver.apply_bc()
-            heat_solver.step_once()
-            t += dt
+        # Only compute solver every N frames, interpolate in between
+        frame_count += 1
+        if frame_count % solver_skip == 0:
+            for _ in range(steps_per_frame):
+                heat_solver.apply_bc()
+                heat_solver.step_once()
+                t += dt
+            assert heat_solver.u_curr is not None
+            u_prev = heat_solver.u_curr.copy()
 
         # Get current solution (after array swap in step_once)
         u_current = heat_solver.u_curr
@@ -458,9 +466,9 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Animation")
-    fps = st.slider("FPS", 10, 120, 60, help="Frames per second")
+    fps = st.slider("FPS", 10, 120, 30, help="Frames per second")
     steps_per_frame = st.slider(
-        "Steps per frame", 5, 100, 25, 5, help="Time steps between frames"
+        "Steps per frame", 1, 50, 5, 1, help="Time steps between frames"
     )
     render_skip = st.slider(
         "Render every N frames", 1, 10, 3, 1, help="Update surface visualization every N frames (higher = faster but less smooth)"

@@ -110,7 +110,6 @@ def run_solver_streamlit(
     n_terms,
     steps_per_frame,
     skip_error,
-    show_analytic,
     spin,
     deg_per_sec,
     alternate,
@@ -229,51 +228,37 @@ def run_solver_streamlit(
     fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy), dpi=80)  # Lower DPI for web
     fig.subplots_adjust(top=0.8)
 
-    # Create axes: 1 or 2 subplots depending on show_analytic
-    if show_analytic:
-        ax_num = fig.add_subplot(1, 2, 1, projection="3d")
-        ax_ref = fig.add_subplot(1, 2, 2, projection="3d")
-    else:
-        ax_num = fig.add_subplot(1, 1, 1, projection="3d")
-        ax_ref = None
+    ax_num = fig.add_subplot(1, 2, 1, projection="3d")
+    ax_ref = fig.add_subplot(1, 2, 2, projection="3d")
 
-    # Only create wireframes if showing analytic
-    if show_analytic:
-        assert ax_ref is not None
-        wf_pos = ax_ref.plot_wireframe(X, Y, height_scale * u_star_pos, **wire_kwargs)
-        wf_neg = ax_ref.plot_wireframe(X, Y, height_scale * u_star_neg, **wire_kwargs)
-        wf_neg.set_visible(False)
-    else:
-        wf_pos = None
-        wf_neg = None
+    # Wireframes
+    wf_pos = ax_ref.plot_wireframe(X, Y, height_scale * u_star_pos, **wire_kwargs)
+    wf_neg = ax_ref.plot_wireframe(X, Y, height_scale * u_star_neg, **wire_kwargs)
+    wf_neg.set_visible(False)
 
     # Surface (with user-selected colormap for numeric solution)
     surf_kwargs["cmap"] = cmap
     surf = ax_num.plot_surface(X, Y, height_scale * u, **surf_kwargs)
 
-    # Boundary lines - only if showing analytic
+    # Boundary lines
     y_samp, x_samp = y, x
     f_left_vals = f_left_pos(y_samp)
     f_right_vals = f_right_pos(y_samp)
     f_bottom_vals = f_bottom_pos(x_samp)
     f_top_vals = f_top_pos(x_samp)
 
-    if show_analytic:
-        assert ax_ref is not None
-        (left_line_ref,) = ax_ref.plot(
-            0 * y_samp, y_samp, height_scale * f_left_vals, **line_kwargs
-        )
-        (right_line_ref,) = ax_ref.plot(
-            Lx_grid + 0 * y_samp, y_samp, height_scale * f_right_vals, **line_kwargs
-        )
-        (bottom_line_ref,) = ax_ref.plot(
-            x_samp, 0 * x_samp, height_scale * f_bottom_vals, **line_kwargs
-        )
-        (top_line_ref,) = ax_ref.plot(
-            x_samp, Ly_grid + 0 * x_samp, height_scale * f_top_vals, **line_kwargs
-        )
-    else:
-        left_line_ref = right_line_ref = bottom_line_ref = top_line_ref = None
+    (left_line_ref,) = ax_ref.plot(
+        0 * y_samp, y_samp, height_scale * f_left_vals, **line_kwargs
+    )
+    (right_line_ref,) = ax_ref.plot(
+        Lx_grid + 0 * y_samp, y_samp, height_scale * f_right_vals, **line_kwargs
+    )
+    (bottom_line_ref,) = ax_ref.plot(
+        x_samp, 0 * x_samp, height_scale * f_bottom_vals, **line_kwargs
+    )
+    (top_line_ref,) = ax_ref.plot(
+        x_samp, Ly_grid + 0 * x_samp, height_scale * f_top_vals, **line_kwargs
+    )
 
     (left_line,) = ax_num.plot(
         0 * y_samp, y_samp, height_scale * f_left_vals, **line_kwargs
@@ -299,38 +284,24 @@ def run_solver_streamlit(
     ax_num.set_zlabel("u(x,y,t)")
     ax_num.set_ylim(0, Ly_grid)
     ax_num.set_xlim(0, Lx_grid)
-    ax_num.set_xlabel("x")
-    ax_num.set_ylabel("y")
-    ax_num.set_zlabel("u(x,y,t)")
-    ax_num.set_ylim(0, Ly_grid)
-    ax_num.set_xlim(0, Lx_grid)
+    ax_ref.set_xlim(0, Lx_grid)
+    ax_ref.set_ylim(0, Ly_grid)
     ax_num.set_zlim(-1, 1)
+    ax_ref.set_zlim(-1, 1)
     ax_num.set_box_aspect((Lx_grid / Ly_grid, 1.0, 1.0))
-
-    if show_analytic:
-        assert ax_ref is not None
-        ax_ref.set_xlabel("x")
-        ax_ref.set_ylabel("y")
-        ax_ref.set_zlabel("u(x,y,t)")
-        ax_ref.set_xlim(0, Lx_grid)
-        ax_ref.set_ylim(0, Ly_grid)
-        ax_ref.set_zlim(-1, 1)
-        ax_ref.set_box_aspect((Lx_grid / Ly_grid, 1.0, 1.0))
+    ax_ref.set_box_aspect((Lx_grid / Ly_grid, 1.0, 1.0))
 
     elev0 = 25
     azim0 = -60
     ax_num.view_init(elev=elev0, azim=azim0)
-    if show_analytic and ax_ref is not None:
-        ax_ref.view_init(elev=elev0, azim=azim0)
+    ax_ref.view_init(elev=elev0, azim=azim0)
 
-    # Colorbar - only show if both numeric and analytic
-    if show_colorbar and show_analytic and ax_ref is not None:
+    # Colorbar
+    if show_colorbar:
         fig.colorbar(surf, ax=[ax_num, ax_ref], shrink=0.7, pad=0.08, label="u (temp)")
-    elif show_colorbar:
-        fig.colorbar(surf, ax=ax_num, shrink=0.7, pad=0.08, label="u (temp)")
 
-    # Function title - only if showing analytic
-    if show_function and show_analytic and ax_ref is not None:
+    # Function title
+    if show_function:
         ax_ref.set_title(
             r"$u(x,y) = u_n + u_m + v$"
             "\n"
@@ -353,9 +324,11 @@ def run_solver_streamlit(
     # Animation loop
     t = 0.0
     start_time = time.time()
+    render_skip = 2  # Redraw surface every 2 frames (web optimization)
+    frame_count = 0
 
     def update(frame):
-        nonlocal u, u_new, t, surf
+        nonlocal u, u_new, t, surf, frame_count
 
         for _ in range(steps_per_frame):
             heat_solver.apply_bc()
@@ -365,31 +338,31 @@ def run_solver_streamlit(
         # Get current solution (after array swap in step_once)
         u_current = heat_solver.u_curr
 
-        # Update phase and boundary lines if needed (only if showing analytic)
-        if show_analytic:
-            assert heat_solver.x is not None and heat_solver.y is not None
-            heat_solver.update_phase_and_lines(
-                boundary_lines,
-                heat_solver.y,
-                heat_solver.x,
-                height_scale,
-            )
-
-        # Switch between wireframes if phase changed (only if showing analytic)
-        if show_analytic and wf_pos is not None and wf_neg is not None:
-            if heat_solver.phase == 1:
-                wf_pos.set_visible(False)
-                wf_neg.set_visible(True)
-            else:
-                wf_pos.set_visible(True)
-                wf_neg.set_visible(False)
-
-        # Update surface with current solution
-        assert heat_solver.X is not None and heat_solver.Y is not None
-        surf.remove()
-        surf = ax_num.plot_surface(
-            heat_solver.X, heat_solver.Y, height_scale * u_current, **surf_kwargs
+        # Update phase and boundary lines if needed
+        assert heat_solver.x is not None and heat_solver.y is not None
+        heat_solver.update_phase_and_lines(
+            boundary_lines,
+            heat_solver.y,
+            heat_solver.x,
+            height_scale,
         )
+
+        # Switch between wireframes if phase changed
+        if heat_solver.phase == 1:
+            wf_pos.set_visible(False)
+            wf_neg.set_visible(True)
+        else:
+            wf_pos.set_visible(True)
+            wf_neg.set_visible(False)
+
+        # Update surface only every N frames (web optimization)
+        frame_count += 1
+        if frame_count % render_skip == 0:
+            assert heat_solver.X is not None and heat_solver.Y is not None
+            surf.remove()
+            surf = ax_num.plot_surface(
+                heat_solver.X, heat_solver.Y, height_scale * u_current, **surf_kwargs
+            )
 
         # Compute and display error
         if not skip_error:
@@ -405,8 +378,7 @@ def run_solver_streamlit(
             elapsed = time.time() - start_time
             az = azim0 + deg_per_sec * elapsed
             ax_num.view_init(elev=elev0, azim=az)
-            if show_analytic and ax_ref is not None:
-                ax_ref.view_init(elev=elev0, azim=az)
+            ax_ref.view_init(elev=elev0, azim=az)
 
         return (surf, time_text)
 
@@ -662,9 +634,6 @@ with col3:
     skip_error = st.checkbox(
         "Skip error calculation", False, help="Faster but less information"
     )
-    show_analytic = st.checkbox(
-        "Show analytic solution", True, help="Skip right panel for faster rendering"
-    )
     enforce_BC = st.checkbox(
         "Enforce BC on analytic", False, help="Validate BCs on analytic solution"
     )
@@ -744,7 +713,6 @@ if st.button("Run Animation", use_container_width=True):
             n_terms=n_terms,
             steps_per_frame=steps_per_frame,
             skip_error=skip_error,
-            show_analytic=show_analytic,
             spin=spin,
             deg_per_sec=deg_per_sec,
             alternate=alternate,

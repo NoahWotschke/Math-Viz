@@ -1,0 +1,102 @@
+"""Boundary condition (BC) module.
+
+Provides boundary condition functions and utilities for constructing complex
+boundary conditions from specifications.
+
+Submodules:
+    funcs: Library of parameterizable BC functions (const, sin, exp, etc.)
+    builder: Specification-based BC constructor
+"""
+
+from .funcs import (
+    const_0,
+    const_1,
+    const_c,
+    linear_up,
+    linear_down,
+    quadratic_bowl,
+    quadratic_cap,
+    parabola_peak_mid,
+    sin_k,
+    cos_k,
+    sin_2pi_k,
+    cos_2pi_k,
+    exp_growth,
+    exp_decay,
+    sinh_shape,
+    cosh_shape,
+    sqrt_shape,
+    log_shape,
+    rational,
+    x_pow_x,
+    abs_centered,
+    triangle,
+    heaviside_step,
+    piecewise_step,
+    gaussian,
+    bump_cos,
+    sawtooth,
+    square_wave,
+    pulse,
+    smooth_bump,
+    hermite_smoothstep,
+    noise_bc,
+    bc_scale,
+    bc_shift,
+    bc_mirror,
+    bc_normalize,
+    bc_derivative,
+    bc_mul,
+    bc_add,
+    neg_bc,
+    make_bc,
+)
+from .builder import build_bc_from_spec
+
+__all__ = [
+    # Base functions
+    "const_0",
+    "const_1",
+    "const_c",
+    "linear_up",
+    "linear_down",
+    "quadratic_bowl",
+    "quadratic_cap",
+    "parabola_peak_mid",
+    "sin_k",
+    "cos_k",
+    "sin_2pi_k",
+    "cos_2pi_k",
+    "exp_growth",
+    "exp_decay",
+    "sinh_shape",
+    "cosh_shape",
+    "sqrt_shape",
+    "log_shape",
+    "rational",
+    "x_pow_x",
+    "abs_centered",
+    "triangle",
+    "heaviside_step",
+    "piecewise_step",
+    "gaussian",
+    "bump_cos",
+    "sawtooth",
+    "square_wave",
+    "pulse",
+    "smooth_bump",
+    "hermite_smoothstep",
+    "noise_bc",
+    # Combinators
+    "bc_scale",
+    "bc_shift",
+    "bc_mirror",
+    "bc_normalize",
+    "bc_derivative",
+    "bc_mul",
+    "bc_add",
+    "neg_bc",
+    "make_bc",
+    # Builder
+    "build_bc_from_spec",
+]

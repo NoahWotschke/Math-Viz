@@ -1,0 +1,79 @@
+"""Grid management for computational domains.
+
+Provides both class-based (Grid) and global function-based APIs.
+Supports Cartesian (2D/1D), polar, and other coordinate systems.
+
+The Grid class is defined in heat2d.domains.base for centralized management.
+This module provides backward-compatible global API for existing code.
+"""
+
+from typing import Optional
+import numpy as np
+
+from heat2d.domains.base import Grid
+
+
+# ============================================================================
+# Global API for backward compatibility with existing heat2d_rect_fd.py
+# ============================================================================
+
+# default rectangle geometry and grid
+Lx, Ly = 1.0, 1.0
+Nx = 21 * int(Lx)
+Ny = 21 * int(Ly)
+
+# Grid coordinates (computed by _make_grid)
+x: np.ndarray
+y: np.ndarray
+dx: float
+dy: float
+X: np.ndarray
+Y: np.ndarray
+
+
+def _make_grid():
+    """Recompute coordinate arrays after grid resolution changes."""
+    global x, y, dx, dy, X, Y
+    x = np.linspace(0, Lx, Nx)
+    y = np.linspace(0, Ly, Ny)
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    X, Y = np.meshgrid(x, y, indexing="xy")
+
+
+# initialize grid arrays
+_make_grid()
+
+
+def adjust_resolution(res: int) -> None:
+    """Adjust global grid resolution.
+
+    Recomputes grid spacing and coordinate arrays for a new resolution.
+
+    Args:
+        res: Grid resolution multiplier (points per unit length).
+             Nx = res * Lx, Ny = res * Ly. Must be > 0.
+
+    Example:
+        >>> adjust_resolution(100)  # 100 points per unit length
+    """
+    global Nx, Ny
+    Nx = res * int(Lx)
+    Ny = res * int(Ly)
+    _make_grid()
+
+
+def set_domain(lx: float, ly: float) -> None:
+    """Set domain dimensions and recompute grid.
+
+    Args:
+        lx: Length in x-direction
+        ly: Length in y-direction
+    """
+    global Lx, Ly, Nx, Ny
+    Lx = lx
+    Ly = ly
+    # Recalculate grid points based on base resolution (21 points/unit)
+    Nx = 21 * int(Lx)
+    Ny = 21 * int(Ly)
+    _make_grid()

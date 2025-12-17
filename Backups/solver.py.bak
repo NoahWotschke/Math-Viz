@@ -1,0 +1,569 @@
+import numpy as np
+
+
+def build_bc_from_spec(spec, L, bc_module):
+    """Recursively build BC function from spec (func_name, {params}).
+
+    Base case: ("const_0", {}) -> make_bc(const_0, L=L)
+    Operations: ("scale", {"amp": 2.0, "f": spec})
+               ("mul", {"f": spec1, "g": spec2})
+               ("add", {"f": spec1, "g": spec2})
+               ("neg", {"f": spec})
+               etc.
+
+    Parameters
+    ----------
+    spec : tuple
+        (func_name, params_dict) specification
+    L : float
+        Domain length parameter
+    bc_module : module
+        BC functions module (heat2d.bc_funcs)
+
+    Returns
+    -------
+    callable
+        Boundary condition function
+    """
+    func_name, params = spec
+
+    # Single-argument operations (apply to inner BC)
+    if func_name == "scale":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("scale requires 'f' (inner BC spec)")
+        amp = params.get("amp", 1.0)
+        return bc_module.bc_scale(f, amp)
+
+    elif func_name == "neg":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("neg requires 'f' (inner BC spec)")
+        return bc_module.neg_bc(f)
+
+    elif func_name == "shift":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("shift requires 'f' (inner BC spec)")
+        offset = params.get("offset", 0.0)
+        return bc_module.bc_shift(f, offset, L)
+
+    elif func_name == "mirror":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("mirror requires 'f' (inner BC spec)")
+        return bc_module.bc_mirror(f, L)
+
+    elif func_name == "normalize":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("normalize requires 'f' (inner BC spec)")
+        return bc_module.bc_normalize(f)
+
+    elif func_name == "derivative":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("derivative requires 'f' (inner BC spec)")
+        h = params.get("h", 1e-6)
+        return bc_module.bc_derivative(f, h)
+
+    # Two-argument operations (combine two BCs)
+    elif func_name == "mul":
+        f_spec = params.get("f")
+        g_spec = params.get("g")
+        if not (f_spec and g_spec):
+            raise ValueError("mul requires 'f' and 'g' (two BC specs)")
+        f = build_bc_from_spec(f_spec, L, bc_module)
+        g = build_bc_from_spec(g_spec, L, bc_module)
+        return bc_module.bc_mul(f, g)
+
+    elif func_name == "add":
+        f_spec = params.get("f")
+        g_spec = params.get("g")
+        if not (f_spec and g_spec):
+            raise ValueError("add requires 'f' and 'g' (two BC specs)")
+        f = build_bc_from_spec(f_spec, L, bc_module)
+        g = build_bc_from_spec(g_spec, L, bc_module)
+        return bc_module.bc_add(f, g)
+
+    # Base case: primitive BC function
+    else:
+        # Extract parameters for the base function
+        func_obj = getattr(bc_module, func_name)
+        return bc_module.make_bc(func_obj, L=L, **params)
+
+
+class SolverConfig:
+    """Configuration container for heat equation solver.
+
+    Simplifies function signatures by wrapping solver parameters.
+    """
+
+    def __init__(self, alpha, dt, dx, dy, x, y, cycles_per_cycles, alternate):
+        self.alpha = alpha
+        self.dt = dt
+        self.dx = dx
+        self.dy = dy
+        self.x = x
+        self.y = y
+        self.cycles_per_cycles = cycles_per_cycles
+        self.alternate = alternate
+
+
+class BoundaryConfig:
+    """Factory class for creating boundary condition objects with both phases.
+
+    Encapsulates the setup of positive and negative phase boundary conditions,
+    making it easy to manage BC creation and transformation.
+    """
+
+    def __init__(self, bc_module, Lx, Ly):
+        """Initialize boundary config with module and domain dimensions.
+
+        Parameters
+        ----------
+        bc_module : module
+            Module containing BC building functions (make_bc, neg_bc, etc.)
+        Lx, Ly : float
+            Domain dimensions
+        """
+        self.bc = bc_module
+        self.Lx = Lx
+        self.Ly = Ly
+
+    def create_conditions(self, bc_specs):
+        """Create positive and negative phase boundary conditions.
+
+        Parameters
+        ----------
+        bc_specs : list of 4 tuples
+            [left_spec, right_spec, bottom_spec, top_spec]
+            Each should be (func_name, {params}) or callable
+            Examples: ('const_0', {}) or ('sin_k', {'k': 1})
+
+        Returns
+        -------
+        dict
+            {"pos": [f_left, f_right, f_bottom, f_top],
+             "neg": [f_left_n, f_right_n, f_bottom_n, f_top_n]}
+        """
+        left_spec, right_spec, bottom_spec, top_spec = bc_specs
+
+        # Helper to build a BC function
+        def build_bc(spec, length):
+            if callable(spec):
+                return spec
+            if isinstance(spec, tuple) and len(spec) == 2:
+                func_name, kwargs = spec
+                bc_func = getattr(self.bc, func_name)
+                return self.bc.make_bc(bc_func, L=length, **kwargs)
+            raise ValueError(f"Invalid BC spec: {spec}")
+
+        # Create positive phase
+        f_left = build_bc(left_spec, self.Ly)
+        f_right = build_bc(right_spec, self.Ly)
+        f_bottom = build_bc(bottom_spec, self.Lx)
+        f_top = build_bc(top_spec, self.Lx)
+
+        # Create negative phase (negation of positive)
+        f_left_n = self.bc.neg_bc(f_left)
+        f_right_n = self.bc.neg_bc(f_right)
+        f_bottom_n = self.bc.neg_bc(f_bottom)
+        f_top_n = self.bc.neg_bc(f_top)
+
+        return {
+            "pos": [f_left, f_right, f_bottom, f_top],
+            "neg": [f_left_n, f_right_n, f_bottom_n, f_top_n],
+        }
+
+
+class BoundaryConditions:
+    """Container for boundary condition functions (pos and neg phases)."""
+
+    def __init__(
+        self,
+        f_left,
+        f_right,
+        f_bottom,
+        f_top,
+        f_left_n,
+        f_right_n,
+        f_bottom_n,
+        f_top_n,
+        x=None,
+        y=None,
+    ):
+        self.pos = (f_left, f_right, f_bottom, f_top)
+        self.neg = (f_left_n, f_right_n, f_bottom_n, f_top_n)
+
+        # Pre-cache boundary evaluations if coordinates provided
+        if x is not None and y is not None:
+            self._cache_evaluations(x, y)
+        else:
+            self._cached_pos = None
+            self._cached_neg = None
+
+    def _cache_evaluations(self, x, y):
+        """Pre-compute boundary values to avoid repeated function calls."""
+        fL, fR, fB, fT = self.pos
+        self._cached_pos = {
+            "left": fL(y),
+            "right": fR(y),
+            "bottom": fB(x),
+            "top": fT(x),
+        }
+
+        fL_n, fR_n, fB_n, fT_n = self.neg
+        self._cached_neg = {
+            "left": fL_n(y),
+            "right": fR_n(y),
+            "bottom": fB_n(x),
+            "top": fT_n(x),
+        }
+
+    def get_phase_functions(self, phase):
+        """Get boundary functions for current phase."""
+        return self.neg if phase == 1 else self.pos
+
+    def get_cached_phase(self, phase):
+        """Get cached boundary values for current phase."""
+        return self._cached_neg if phase == 1 else self._cached_pos
+
+
+def apply_bc(arr, x, y, f_left, f_right, f_bottom, f_top):
+    arr[:, 0] = f_left(y)
+    arr[:, -1] = f_right(y)
+    arr[0, :] = f_bottom(x)
+    arr[-1, :] = f_top(x)
+
+
+def step_once(u_curr, u_next, step, config, bc):
+    """Advance solution one time step.
+
+    Parameters
+    ----------
+    u_curr : ndarray
+        Current solution
+    u_next : ndarray
+        Next solution (will be updated)
+    step : int
+        Current step number
+    config : SolverConfig
+        Solver configuration
+    bc : BoundaryConditions
+        Boundary conditions (pos and neg phases)
+
+    Returns
+    -------
+    int
+        Phase (0 for positive, 1 for negative)
+    """
+    u_next[1:-1, 1:-1] = u_curr[1:-1, 1:-1] + config.alpha * config.dt * (
+        (u_curr[1:-1, 2:] - 2 * u_curr[1:-1, 1:-1] + u_curr[1:-1, :-2]) / config.dx**2
+        + (u_curr[2:, 1:-1] - 2 * u_curr[1:-1, 1:-1] + u_curr[:-2, 1:-1]) / config.dy**2
+    )
+
+    if config.alternate and ((step // config.cycles_per_cycles) % 2 == 1):
+        apply_bc(u_next, config.x, config.y, *bc.neg)
+        return 1
+    else:
+        apply_bc(u_next, config.x, config.y, *bc.pos)
+        return 0
+
+
+def compute_error(u_current, u_star_pos, u_star_neg, phase_now, err_buf=None):
+    """Compute L∞ error norm against analytic solution.
+
+    Parameters
+    ----------
+    u_current : ndarray
+        Current numerical solution
+    u_star_pos : ndarray
+        Analytic solution (positive phase)
+    u_star_neg : ndarray
+        Analytic solution (negative phase)
+    phase_now : int
+        Current phase (0 for positive, 1 for negative)
+    err_buf : ndarray, optional
+        Pre-allocated buffer for error computation (avoids allocation)
+
+    Returns
+    -------
+    float
+        L∞ error (maximum absolute difference)
+    """
+    if err_buf is None:
+        err_buf = np.empty_like(u_current)
+    ref = u_star_neg if phase_now else u_star_pos
+    np.subtract(u_current, ref, out=err_buf)
+    np.abs(err_buf, out=err_buf)
+    return float(err_buf.max())
+
+
+def update_phase_and_lines(
+    phase_now_val,
+    phase_prev_val,
+    boundary_lines,
+    bc_functions,
+    y_samp,
+    x_samp,
+    height_scale,
+    Lx,
+    Ly,
+    wf_pos,
+    wf_neg,
+):
+    """Update boundary lines and wireframes when phase switches.
+
+    Parameters
+    ----------
+    phase_now_val : int
+        Current phase (0 for positive, 1 for negative)
+    phase_prev_val : int
+        Previous phase
+    boundary_lines : dict
+        Dictionary containing 'num' and 'ref' keys with line lists
+    bc_functions : dict
+        Dictionary with 'pos' and 'neg' keys containing BC function lists
+    y_samp, x_samp : array-like
+        Sampled coordinate arrays
+    height_scale : float
+        Height scaling factor
+    Lx, Ly : float
+        Domain dimensions
+    wf_pos, wf_neg : mplot3d.art3d.Poly3DCollection
+        Wireframe plots for positive and negative phases
+
+    Returns
+    -------
+    int
+        Updated phase value (phase_now_val if changed, phase_prev_val otherwise)
+    """
+    if phase_now_val != phase_prev_val:
+        if phase_now_val == 1:
+            update_boundary_lines(
+                boundary_lines,
+                bc_functions["neg"],
+                y_samp,
+                x_samp,
+                height_scale,
+                Lx,
+                Ly,
+            )
+            wf_pos.set_visible(False)
+            wf_neg.set_visible(True)
+        else:
+            update_boundary_lines(
+                boundary_lines,
+                bc_functions["pos"],
+                y_samp,
+                x_samp,
+                height_scale,
+                Lx,
+                Ly,
+            )
+            wf_pos.set_visible(True)
+            wf_neg.set_visible(False)
+        return phase_now_val
+    return phase_prev_val
+
+
+def update_boundary_lines(
+    lines,
+    bc_funcs,
+    y_samp,
+    x_samp,
+    height_scale,
+    Lx,
+    Ly,
+):
+    """Update boundary line data in-place (faster than recreating).
+
+    Parameters
+    ----------
+    lines : dict
+        Dictionary containing 'num' and 'ref' keys, each with lists of 4 line objects
+    bc_funcs : list of 4 callables
+        [fL, fR, fB, fT] boundary functions (left, right, bottom, top)
+    y_samp, x_samp : array-like
+        Sampled coordinate arrays
+    height_scale : float
+        Height scaling factor
+    Lx, Ly : float
+        Domain dimensions
+    """
+    fL, fR, fB, fT = bc_funcs
+
+    # Update numeric boundary lines
+    lines["num"][0].set_data(0 * y_samp, y_samp)
+    lines["num"][0].set_3d_properties(height_scale * fL(y_samp))
+
+    lines["num"][1].set_data(Lx + 0 * y_samp, y_samp)
+    lines["num"][1].set_3d_properties(height_scale * fR(y_samp))
+
+    lines["num"][2].set_data(x_samp, 0 * x_samp)
+    lines["num"][2].set_3d_properties(height_scale * fB(x_samp))
+
+    lines["num"][3].set_data(x_samp, Ly + 0 * x_samp)
+    lines["num"][3].set_3d_properties(height_scale * fT(x_samp))
+
+    # Update reference boundary lines
+    lines["ref"][0].set_data(0 * y_samp, y_samp)
+    lines["ref"][0].set_3d_properties(height_scale * fL(y_samp))
+
+    lines["ref"][1].set_data(Lx + 0 * y_samp, y_samp)
+    lines["ref"][1].set_3d_properties(height_scale * fR(y_samp))
+
+    lines["ref"][2].set_data(x_samp, 0 * x_samp)
+    lines["ref"][2].set_3d_properties(height_scale * fB(x_samp))
+
+    lines["ref"][3].set_data(x_samp, Ly + 0 * x_samp)
+    lines["ref"][3].set_3d_properties(height_scale * fT(x_samp))
+
+
+def recreate_surface(ax, X, Y, u, height_scale, old_surf, surf_kwargs):
+    """Efficiently update surface by removing and redrawing with optimized approach.
+
+    Note: Matplotlib 3D surface plots don't support in-place updates efficiently.
+    This removes the old surface and creates a new one (same as before but cleaner).
+
+    Parameters
+    ----------
+    ax : matplotlib 3D axis
+        Axes to plot on
+    X, Y : ndarray
+        Coordinate meshgrids
+    u : ndarray
+        Solution data
+    height_scale : float
+        Height scaling factor
+    old_surf : mplot3d.art3d.Poly3DCollection
+        Previous surface plot to remove
+    surf_kwargs : dict
+        Plotting keyword arguments
+
+    Returns
+    -------
+    mplot3d.art3d.Poly3DCollection
+        New surface plot object
+    """
+    old_surf.remove()
+    return ax.plot_surface(X, Y, height_scale * u, **surf_kwargs)
+
+
+# ============================================================================
+# ANALYTIC SOLUTIONS
+# ============================================================================
+
+
+def analytic_dirichlet_rect_series(
+    X,
+    Y,
+    a,
+    b,
+    f1,
+    f2,
+    f3,
+    f4,
+    n_terms=200,
+    m_terms=200,
+    quad_pts=256,
+):
+    """
+    Stable series evaluation for Dirichlet rectangle.
+
+    Computes the analytic solution to Laplace's equation on a rectangle
+    with Dirichlet boundary conditions using eigenfunction series expansion.
+
+    Parameters
+    ----------
+    X, Y : ndarray
+        2D mesh grids
+    a, b : float
+        Rectangle dimensions (width, height)
+    f1, f2, f3, f4 : callable
+        Boundary functions (bottom, top, left, right)
+    n_terms : int
+        Number of terms in x-series (default 200)
+    m_terms : int
+        Number of terms in y-series (default 200)
+    quad_pts : int
+        Number of quadrature points (default 256)
+
+    Returns
+    -------
+    ndarray
+        Analytic solution values on the mesh
+    """
+    x = X[0, :]
+    y = Y[:, 0]
+
+    xi, wi = np.polynomial.legendre.leggauss(int(quad_pts))
+
+    def integ_sin_on_0L(f, L, k_vec):
+        s = 0.5 * (xi + 1.0) * L
+        w = 0.5 * L * wi
+
+        fs = np.asarray(f(s), dtype=float)
+        if fs.ndim == 0:
+            fs = np.full_like(s, float(fs))
+
+        k_vec = np.asarray(k_vec, dtype=float)
+        S = np.sin((k_vec[:, None] * np.pi * s[None, :]) / L)
+        return S @ (fs * w)
+
+    def sinh_ratio(t, T):
+        t = np.asarray(t, dtype=float)
+        T = np.asarray(T, dtype=float)
+        t, T = np.broadcast_arrays(t, T)
+        out = np.empty_like(t)
+        small = np.abs(T) < 50.0
+        if np.any(small):
+            out[small] = np.sinh(t[small]) / np.sinh(T[small])
+        if np.any(~small):
+            ts = t[~small]
+            Ts = T[~small]
+            out[~small] = (np.exp(ts - Ts) - np.exp(-(ts + Ts))) / (
+                1.0 - np.exp(-2.0 * Ts)
+            )
+        return out
+
+    n = np.arange(1, int(n_terms) + 1, dtype=float)
+    I2 = integ_sin_on_0L(f2, a, n)
+    I1 = integ_sin_on_0L(f1, a, n)
+    pref_top = (2.0 / a) * I2
+    pref_bot = (2.0 / a) * I1
+    lam_n = (n * np.pi) / a
+    Tn = lam_n * b
+    sin_nx = np.sin(lam_n[:, None] * x[None, :])
+    r_top = sinh_ratio(lam_n[:, None] * y[None, :], Tn[:, None])
+    r_bot = sinh_ratio(lam_n[:, None] * (b - y)[None, :], Tn[:, None])
+    u_n = np.einsum("n,ny,nx->yx", pref_top, r_top, sin_nx)
+    u_n += np.einsum("n,ny,nx->yx", pref_bot, r_bot, sin_nx)
+
+    m = np.arange(1, int(m_terms) + 1, dtype=float)
+    I4 = integ_sin_on_0L(f4, b, m)
+    I3 = integ_sin_on_0L(f3, b, m)
+    pref_right = (2.0 / b) * I4
+    pref_left = (2.0 / b) * I3
+    lam_m = (m * np.pi) / b
+    Tm = lam_m * a
+    sin_my = np.sin(lam_m[:, None] * y[None, :])
+    r_right = sinh_ratio(lam_m[:, None] * x[None, :], Tm[:, None])
+    r_left = sinh_ratio(lam_m[:, None] * (a - x)[None, :], Tm[:, None])
+    u_m = np.einsum("m,mx,my->yx", pref_right, r_right, sin_my)
+    u_m += np.einsum("m,mx,my->yx", pref_left, r_left, sin_my)
+
+    return u_n + u_m

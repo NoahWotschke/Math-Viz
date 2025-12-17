@@ -1,0 +1,109 @@
+"""Boundary condition specification builder.
+
+Provides recursive construction of boundary condition functions from
+declarative specifications.
+"""
+
+
+def build_bc_from_spec(spec, L, bc_module):
+    """Recursively build BC function from spec (func_name, {params}).
+
+    Base case: ("const_0", {}) -> make_bc(const_0, L=L)
+    Operations: ("scale", {"amp": 2.0, "f": spec})
+               ("mul", {"f": spec1, "g": spec2})
+               ("add", {"f": spec1, "g": spec2})
+               ("neg", {"f": spec})
+               etc.
+
+    Parameters
+    ----------
+    spec : tuple
+        (func_name, params_dict) specification
+    L : float
+        Domain length parameter
+    bc_module : module
+        BC functions module (heat2d.bc_funcs)
+
+    Returns
+    -------
+    callable
+        Boundary condition function
+    """
+    func_name, params = spec
+
+    # Single-argument operations (apply to inner BC)
+    if func_name == "scale":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("scale requires 'f' (inner BC spec)")
+        amp = params.get("amp", 1.0)
+        return bc_module.bc_scale(f, amp)
+
+    elif func_name == "neg":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("neg requires 'f' (inner BC spec)")
+        return bc_module.neg_bc(f)
+
+    elif func_name == "shift":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("shift requires 'f' (inner BC spec)")
+        offset = params.get("offset", 0.0)
+        return bc_module.bc_shift(f, offset, L)
+
+    elif func_name == "mirror":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("mirror requires 'f' (inner BC spec)")
+        return bc_module.bc_mirror(f, L)
+
+    elif func_name == "normalize":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("normalize requires 'f' (inner BC spec)")
+        return bc_module.bc_normalize(f)
+
+    elif func_name == "derivative":
+        inner_spec = params.get("f")
+        if inner_spec:
+            f = build_bc_from_spec(inner_spec, L, bc_module)
+        else:
+            raise ValueError("derivative requires 'f' (inner BC spec)")
+        h = params.get("h", 1e-6)
+        return bc_module.bc_derivative(f, h)
+
+    # Two-argument operations (combine two BCs)
+    elif func_name == "mul":
+        f_spec = params.get("f")
+        g_spec = params.get("g")
+        if not (f_spec and g_spec):
+            raise ValueError("mul requires 'f' and 'g' (two BC specs)")
+        f = build_bc_from_spec(f_spec, L, bc_module)
+        g = build_bc_from_spec(g_spec, L, bc_module)
+        return bc_module.bc_mul(f, g)
+
+    elif func_name == "add":
+        f_spec = params.get("f")
+        g_spec = params.get("g")
+        if not (f_spec and g_spec):
+            raise ValueError("add requires 'f' and 'g' (two BC specs)")
+        f = build_bc_from_spec(f_spec, L, bc_module)
+        g = build_bc_from_spec(g_spec, L, bc_module)
+        return bc_module.bc_add(f, g)
+
+    # Base case: primitive BC function
+    else:
+        # Extract parameters for the base function
+        func_obj = getattr(bc_module, func_name)
+        return bc_module.make_bc(func_obj, L=L, **params)

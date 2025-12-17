@@ -123,6 +123,7 @@ def run_solver_streamlit(
     Lx,
     Ly,
     cmap,
+    render_skip,
 ):
     """Run heat equation solver and display animation in matplotlib window."""
     
@@ -324,7 +325,6 @@ def run_solver_streamlit(
     # Animation loop
     t = 0.0
     start_time = time.time()
-    render_skip = 3  # Only calculate and redraw surface every 3 frames (web optimization)
     frame_count = 0
 
     def update(frame):
@@ -461,6 +461,9 @@ with col1:
     fps = st.slider("FPS", 10, 120, 60, help="Frames per second")
     steps_per_frame = st.slider(
         "Steps per frame", 5, 100, 25, 5, help="Time steps between frames"
+    )
+    render_skip = st.slider(
+        "Render every N frames", 1, 10, 3, 1, help="Update surface visualization every N frames (higher = faster but less smooth)"
     )
 
 with col2:
@@ -727,6 +730,7 @@ if st.button("Run Animation", use_container_width=True):
             Lx=Lx,
             Ly=Ly,
             cmap=cmap,
+            render_skip=render_skip,
         )
         st.success("✓ Animation stopped!")
 

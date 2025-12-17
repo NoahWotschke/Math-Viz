@@ -12,7 +12,3 @@ Interactive visualization tool for solving and animating partial differential eq
 - **35+ Boundary Condition Functions**
 - **MP4 Export** for animations
 - **CLI + Web Interface**
-
-## License
-
-Open source for educational and research use.

@@ -334,7 +334,6 @@ def run_solver_streamlit(
         nonlocal u, u_new, t, surf, frame_count, u_prev
 
         # Only compute solver every N frames, interpolate in between
-        frame_count += 1
         if frame_count % solver_skip == 0:
             for _ in range(steps_per_frame):
                 heat_solver.apply_bc()
@@ -342,6 +341,8 @@ def run_solver_streamlit(
                 t += dt
             assert heat_solver.u_curr is not None
             u_prev = heat_solver.u_curr.copy()
+        
+        frame_count += 1
 
         # Get current solution (after array swap in step_once)
         u_current = heat_solver.u_curr

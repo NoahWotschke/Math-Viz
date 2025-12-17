@@ -151,7 +151,7 @@ top_bc_name = top_bc.split("  #")[0] if "  #" in top_bc else top_bc
 top_params = st.text_input("Top params", "{}", key="top_params")
 
 # Run
-if st.button("�� Visualize", use_container_width=True, type="primary"):
+if st.button("🚀 Visualize", use_container_width=True, type="primary"):
     try:
         # Parse parameters
         left_params_dict = json.loads(left_params)

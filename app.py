@@ -400,15 +400,8 @@ def run_solver_streamlit(
     progress_bar.progress(1.0)
     progress_text.write("**100%** — Precalculation complete!")
     
-    # Debug: check if solution changed
-    if len(frames_data) > 1:
-        u_first = frames_data[0]["u"]
-        u_last = frames_data[-1]["u"]
-        change = np.max(np.abs(u_last - u_first))
-        st.write(f"**Debug:** Solution change over time: {change:.2e}")
-        if u_star_pos is not None:
-            err_first = heat_solver.compute_error(u_star_pos, -u_star_pos)
-            st.write(f"**Debug:** Sample error value: {err_first:.2e}")
+    # Debug
+    st.write(f"**Debug:** skip_error={skip_error}, u_star_pos is None: {u_star_pos is None}")
 
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 

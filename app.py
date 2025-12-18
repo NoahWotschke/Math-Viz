@@ -467,6 +467,9 @@ def run_solver_streamlit(
             u_star_neg = -u_star_pos  # Negative phase is just negated
             # Compare the stored numerical solution against the analytic solution
             err_inf = heat_solver.compute_error(u_star_pos, u_star_neg)
+            # Debug
+            if frame_idx % 50 == 0:  # Print every 50 frames
+                print(f"Frame {frame_idx}: t={t:.3f}, error={err_inf:.2e}, phase={phase}")
             time_text.set_text(
                 rf"$t={t:.2f}\qquad \|u-u^*\|_\infty={err_inf:.2e}\qquad$"
             )

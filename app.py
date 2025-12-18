@@ -25,9 +25,6 @@ from heat2d.domains.base import Grid as DomainGrid
 from heat2d.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
 from heat2d.bc.builder import build_bc_from_spec
 
-# Streamlit page config for performance
-st.set_page_config(layout="wide", initial_sidebar_state="expanded")
-
 # Initialize session state for stop button
 if "is_animating" not in st.session_state:
     st.session_state.is_animating = False
@@ -118,19 +115,54 @@ def run_solver_streamlit(
     right_spec,
     bottom_spec,
     top_spec,
-    enforce_BC,
     res,
     Lx,
     Ly,
     cmap,
-    render_skip,
+    t_final,
 ):
-    """Run heat equation solver and display animation in matplotlib window."""
-    
-    # Optimize for web: reduce quality/resolution
-    res = min(res, 25)  # Cap resolution for web performance
-    steps_per_frame = min(steps_per_frame, 10)  # Reduce computation per frame
-    n_terms = min(n_terms, 100)  # Reduce analytical series terms
+    """Run heat equation solver and display animation in matplotlib window.
+
+    Precalculates all solution frames, then displays them as smooth animation
+    with live progress tracking. Supports phase alternation for oscillating BCs.
+
+    Parameters
+    ----------
+    fps : int
+        Frames per second for animation display
+    alpha : float
+        Thermal diffusivity coefficient
+    height_scale : float
+        Scaling factor for z-axis visualization
+    show_colorbar : bool
+        Whether to display colorbar on surface plot
+    show_function : bool
+        Whether to display analytic formula on reference plot
+    n_terms : int
+        Number of series terms for analytic solution
+    steps_per_frame : int
+        Solver steps between animation frames
+    skip_error : bool
+        Whether to skip error computation (faster but less info)
+    spin : bool
+        Whether to auto-rotate 3D view
+    deg_per_sec : float
+        Rotation speed in degrees/second
+    alternate : bool
+        Whether to alternate between positive/negative BC phases
+    cycles_per_cycle : int
+        Solver steps per full BC cycle
+    left_spec, right_spec, bottom_spec, top_spec : tuple
+        BC specifications (name, parameters dict)
+    res : int
+        Grid resolution (points per unit length)
+    Lx, Ly : float
+        Domain dimensions
+    cmap : str
+        Colormap for numeric solution
+    t_final : float
+        Total simulation time in seconds
+    """
 
     # Set domain dimensions
     Lx_grid = Lx
@@ -149,13 +181,13 @@ def run_solver_streamlit(
     dx = x[1] - x[0] if Nx > 1 else 1.0
     dy = y[1] - y[0] if Ny > 1 else 1.0
     X, Y = np.meshgrid(x, y, indexing="xy")
-    st.info(f"Web-optimized grid: {Nx} × {Ny} | Resolution capped for performance")
+    st.info(f"Adjusted grid resolution to {Nx} × {Ny}")
 
     # Adjust line spacing in wireframe/surface based on grid resolution
-    wire_kwargs["ccount"] = max(0.2 * Nx, 2)
-    wire_kwargs["rcount"] = max(0.2 * Ny, 2)
-    surf_kwargs["ccount"] = max(0.2 * Nx, 2)
-    surf_kwargs["rcount"] = max(0.2 * Ny, 2)
+    wire_kwargs["ccount"] = 0.2 * Nx
+    wire_kwargs["rcount"] = 0.2 * Ny
+    surf_kwargs["ccount"] = 0.2 * Nx
+    surf_kwargs["rcount"] = 0.2 * Ny
 
     # Boundary conditions - use new build_bc_from_spec approach
     f_left_pos = build_bc_from_spec(left_spec, Ly_grid, bc)
@@ -163,11 +195,11 @@ def run_solver_streamlit(
     f_bottom_pos = build_bc_from_spec(bottom_spec, Lx_grid, bc)
     f_top_pos = build_bc_from_spec(top_spec, Lx_grid, bc)
 
-    # Negative phase (negated)
-    f_left_neg = lambda s: -f_left_pos(s)
-    f_right_neg = lambda s: -f_right_pos(s)
-    f_bottom_neg = lambda s: -f_bottom_pos(s)
-    f_top_neg = lambda s: -f_top_pos(s)
+    # Negative phase (negated) - use default args to capture values properly
+    f_left_neg = lambda s, f=f_left_pos: -f(s)
+    f_right_neg = lambda s, f=f_right_pos: -f(s)
+    f_bottom_neg = lambda s, f=f_bottom_pos: -f(s)
+    f_top_neg = lambda s, f=f_top_pos: -f(s)
 
     # Solver setup
     dt_max = 1.0 / (2.0 * alpha * (1.0 / dx**2 + 1.0 / dy**2))
@@ -188,45 +220,36 @@ def run_solver_streamlit(
     config = Heat2DRectConfig(
         dt=dt,
         alpha=alpha,
-        cycles_per_frame=cycles_per_cycle,
+        cycles_per_frame=1,  # One full cycle per frame
         alternate=alternate,
-        steps_per_cycles=cycles_per_cycle,  # Use slider value for steps per cycle
+        steps_per_cycles=cycles_per_cycle,  # User-controlled steps per full cycle
     )
     heat_solver = Heat2DRectSolver(domain, domain_grid, config, bc_functions)
 
     # Initialize with boundary conditions (positive phase)
     heat_solver.apply_bc()
 
+    # Assert that solver arrays are initialized for type checking
+    assert heat_solver.u_curr is not None, "Solver u_curr not initialized"
+    assert heat_solver.x is not None, "Solver x not initialized"
+    assert heat_solver.y is not None, "Solver y not initialized"
+    assert heat_solver.X is not None, "Solver X not initialized"
+    assert heat_solver.Y is not None, "Solver Y not initialized"
+
     # Get initial solution and analytic solutions
-    u = heat_solver.u_curr
-    u_new = heat_solver.u_next
     u_star_pos = heat_solver.get_analytic_solution(0.0)
     u_star_neg = -u_star_pos
-    err_buf = np.empty_like(u)
-
-    # Enforce BCs on analytic solution if requested (for validation)
-    if enforce_BC:
-        # Apply Dirichlet BCs on all four boundaries for positive phase
-        u_star_pos[:, 0] = f_left_pos(y)
-        u_star_pos[:, -1] = f_right_pos(y)
-        u_star_pos[0, :] = f_bottom_pos(x)
-        u_star_pos[-1, :] = f_top_pos(x)
-        # Apply Dirichlet BCs on all four boundaries for negative phase
-        u_star_neg[:, 0] = f_left_neg(y)
-        u_star_neg[:, -1] = f_right_neg(y)
-        u_star_neg[0, :] = f_bottom_neg(x)
-        u_star_neg[-1, :] = f_top_neg(x)
 
     # Set colorbar limits
     absmax = float(np.nanmax(np.abs(u_star_pos)))
     surf_kwargs["vmin"] = -absmax
     surf_kwargs["vmax"] = absmax
 
-    # Figure setup - optimized for web
+    # Figure setup
     aspect_xy = max(Lx_grid / Ly_grid, Ly_grid / Lx_grid)
     aspect_xy = 1.15 ** np.sqrt(aspect_xy)
-    base_w, base_h = 16, 6.5  # Larger window
-    fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy), dpi=80)  # Lower DPI for web
+    base_w, base_h = 16, 6.5  # Larger for better browser rendering
+    fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy))
     fig.subplots_adjust(top=0.8)
 
     ax_num = fig.add_subplot(1, 2, 1, projection="3d")
@@ -239,7 +262,7 @@ def run_solver_streamlit(
 
     # Surface (with user-selected colormap for numeric solution)
     surf_kwargs["cmap"] = cmap
-    surf = ax_num.plot_surface(X, Y, height_scale * u, **surf_kwargs)
+    surf = ax_num.plot_surface(X, Y, height_scale * heat_solver.u_curr, **surf_kwargs)
 
     # Boundary lines
     y_samp, x_samp = y, x
@@ -279,23 +302,20 @@ def run_solver_streamlit(
         "ref": [left_line_ref, right_line_ref, bottom_line_ref, top_line_ref],
     }
 
-    # Axes setup
-    ax_num.set_xlabel("x")
-    ax_num.set_ylabel("y")
-    ax_num.set_zlabel("u(x,y,t)")
-    ax_num.set_ylim(0, Ly_grid)
-    ax_num.set_xlim(0, Lx_grid)
-    ax_ref.set_xlim(0, Lx_grid)
-    ax_ref.set_ylim(0, Ly_grid)
-    ax_num.set_zlim(-1, 1)
-    ax_ref.set_zlim(-1, 1)
-    ax_num.set_box_aspect((Lx_grid / Ly_grid, 1.0, 1.0))
-    ax_ref.set_box_aspect((Lx_grid / Ly_grid, 1.0, 1.0))
+    # Axes setup - apply to both plots for consistency
+    for ax in [ax_num, ax_ref]:
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("u(x,y,t)")
+        ax.set_xlim(0, Lx_grid)
+        ax.set_ylim(0, Ly_grid)
+        ax.set_zlim(-1, 1)
+        ax.set_box_aspect((Lx_grid / Ly_grid, 1.0, 1.0))
 
-    elev0 = 25
-    azim0 = -60
-    ax_num.view_init(elev=elev0, azim=azim0)
-    ax_ref.view_init(elev=elev0, azim=azim0)
+    # Initial 3D view angles
+    elev0, azim0 = 25, -60
+    for ax in [ax_num, ax_ref]:
+        ax.view_init(elev=elev0, azim=azim0)
 
     # Colorbar
     if show_colorbar:
@@ -322,60 +342,126 @@ def run_solver_streamlit(
         "ref": [left_line_ref, right_line_ref, bottom_line_ref, top_line_ref],
     }
 
-    # Animation loop
+    # Precalculate all frames
+    st.status("Precalculating frames...", expanded=True)
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+
+    frames_data = []  # List of (u_current, time, phase, lines_data, error) tuples
     t = 0.0
-    start_time = time.time()
-    frame_count = 0
-    solver_skip = 2  # Only run solver every 2 frames on web (huge performance boost)
-    assert heat_solver.u_curr is not None
-    u_prev = heat_solver.u_curr.copy()
 
-    def update(frame):
-        nonlocal u, u_new, t, surf, frame_count, u_prev
+    # Initial frame
+    frames_data.append(
+        {
+            "u": heat_solver.u_curr.copy(),
+            "t": t,
+            "phase": heat_solver.phase,
+            "x": heat_solver.x,
+            "y": heat_solver.y,
+            "X": heat_solver.X,
+            "Y": heat_solver.Y,
+            "u_star_pos": heat_solver.get_analytic_solution(t),
+        }
+    )
 
-        # Only compute solver every N frames, interpolate in between
-        if frame_count % solver_skip == 0:
-            for _ in range(steps_per_frame):
+    # Step through solver and collect frames until t_final
+    max_steps = int(t_final / (dt * steps_per_frame)) + 1
+    step_count = 0
+    for step in range(max_steps):
+        # Run steps for this frame
+        for _ in range(steps_per_frame):
+            heat_solver.apply_bc()
+            heat_solver.step_once()
+            t += dt
+            step_count += 1
+
+            # Check if phase should toggle (this must happen after step_once)
+            if alternate and step_count % cycles_per_cycle == 0:
+                heat_solver.phase = 1 - heat_solver.phase
+                # Apply BCs with new phase immediately to sync solution
                 heat_solver.apply_bc()
-                heat_solver.step_once()
-                t += dt
-            assert heat_solver.u_curr is not None
-            u_prev = heat_solver.u_curr.copy()
-        
-        frame_count += 1
 
-        # Get current solution (after array swap in step_once)
-        u_current = heat_solver.u_curr
-
-        # Update phase and boundary lines if needed
-        assert heat_solver.x is not None and heat_solver.y is not None
-        heat_solver.update_phase_and_lines(
-            boundary_lines,
-            heat_solver.y,
-            heat_solver.x,
-            height_scale,
+        u_star_pos = heat_solver.get_analytic_solution(t)
+        frames_data.append(
+            {
+                "u": heat_solver.u_curr.copy(),
+                "t": t,
+                "phase": heat_solver.phase,
+                "x": heat_solver.x,
+                "y": heat_solver.y,
+                "X": heat_solver.X,
+                "Y": heat_solver.Y,
+                "u_star_pos": u_star_pos,
+            }
         )
 
+        progress = (step + 1) / max(1, max_steps)
+        progress_bar.progress(progress)
+        progress_text.write(
+            f"**{progress*100:.0f}%** — Frame {step+1}/{max_steps} | Phase: {heat_solver.phase}"
+        )
+    st.success(f"✓ Precalculated {len(frames_data)} frames")
+
+    # Animation loop - render precalculated frames
+    t = 0.0
+    start_time = time.time()
+
+    def update(frame_idx):
+        nonlocal surf, t
+
+        if frame_idx >= len(frames_data):
+            return (surf, time_text)
+
+        frame_data = frames_data[frame_idx]
+        u_current = frame_data["u"]
+        t = frame_data["t"]
+        phase = frame_data["phase"]
+
+        # Get BC functions for current phase
+        phase_key = "neg" if phase == 1 else "pos"
+        bc_funcs = heat_solver.bc_functions[phase_key]
+        fL, fR, fB, fT = bc_funcs
+
+        # Update boundary lines for current phase
+        y_samp = frame_data["y"]
+        x_samp = frame_data["x"]
+
+        boundary_lines["num"][0].set_data(0 * y_samp, y_samp)
+        boundary_lines["num"][0].set_3d_properties(height_scale * fL(y_samp))  # type: ignore
+        boundary_lines["num"][1].set_data(Lx_grid + 0 * y_samp, y_samp)
+        boundary_lines["num"][1].set_3d_properties(height_scale * fR(y_samp))  # type: ignore
+        boundary_lines["num"][2].set_data(x_samp, 0 * x_samp)
+        boundary_lines["num"][2].set_3d_properties(height_scale * fB(x_samp))  # type: ignore
+        boundary_lines["num"][3].set_data(x_samp, Ly_grid + 0 * x_samp)
+        boundary_lines["num"][3].set_3d_properties(height_scale * fT(x_samp))  # type: ignore
+
+        boundary_lines["ref"][0].set_data(0 * y_samp, y_samp)
+        boundary_lines["ref"][0].set_3d_properties(height_scale * fL(y_samp))  # type: ignore
+        boundary_lines["ref"][1].set_data(Lx_grid + 0 * y_samp, y_samp)
+        boundary_lines["ref"][1].set_3d_properties(height_scale * fR(y_samp))  # type: ignore
+        boundary_lines["ref"][2].set_data(x_samp, 0 * x_samp)
+        boundary_lines["ref"][2].set_3d_properties(height_scale * fB(x_samp))  # type: ignore
+        boundary_lines["ref"][3].set_data(x_samp, Ly_grid + 0 * x_samp)
+        boundary_lines["ref"][3].set_3d_properties(height_scale * fT(x_samp))  # type: ignore
+
         # Switch between wireframes if phase changed
-        if heat_solver.phase == 1:
+        if phase == 1:
             wf_pos.set_visible(False)
             wf_neg.set_visible(True)
         else:
             wf_pos.set_visible(True)
             wf_neg.set_visible(False)
 
-        # Calculate and update surface only every N frames (web optimization)
-        # This skips both the computation of plot_surface and the rendering
-        frame_count += 1
-        if frame_count % render_skip == 0:
-            assert heat_solver.X is not None and heat_solver.Y is not None
-            surf.remove()
-            surf = ax_num.plot_surface(
-                heat_solver.X, heat_solver.Y, height_scale * u_current, **surf_kwargs
-            )
+        # Update surface with current solution
+        surf.remove()
+        surf = ax_num.plot_surface(
+            frame_data["X"], frame_data["Y"], height_scale * u_current, **surf_kwargs
+        )
 
         # Compute and display error
         if not skip_error:
+            u_star_pos = frame_data["u_star_pos"]
+            u_star_neg = -u_star_pos
             err_inf = heat_solver.compute_error(u_star_pos, u_star_neg)
             time_text.set_text(
                 rf"$t={t:.2f}\qquad \|u-u^*\|_\infty={err_inf:.2e}\qquad$"
@@ -392,12 +478,13 @@ def run_solver_streamlit(
 
         return (surf, time_text)
 
-    # Render animation frames live in Streamlit - continuous until stopped
+    # Render animation frames from precalculated data
     placeholder = st.empty()
-    stop_button = st.button("Stop", use_container_width=True, key="stop_btn")
+    progress_bar_playback = st.progress(0)
+    progress_text_playback = st.empty()
 
     frame_num = 0
-    while not stop_button and st.session_state.is_animating:
+    while st.session_state.is_animating:
         update(frame_num)
 
         # Convert figure to image (PNG for lossless quality)
@@ -408,10 +495,16 @@ def run_solver_streamlit(
         # Display frame
         placeholder.image(buf)
 
-        frame_num = (frame_num + 1) % 10000  # Loop indefinitely
+        # Update playback progress
+        progress = frame_num / max(1, len(frames_data))
+        progress_bar_playback.progress(progress)
+        progress_text_playback.write(
+            f"**{progress*100:.0f}%** — Frame {frame_num+1}/{len(frames_data)} | t={frames_data[frame_num]['t']:.3f}s"
+        )
 
-        if stop_button:
-            break
+        frame_num = (frame_num + 1) % len(
+            frames_data
+        )  # Loop through precalculated frames
 
     plt.close(fig)
 
@@ -467,12 +560,12 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Animation")
-    fps = st.slider("FPS", 10, 120, 30, help="Frames per second")
-    steps_per_frame = st.slider(
-        "Steps per frame", 1, 50, 5, 1, help="Time steps between frames"
+    fps = st.slider("FPS", 10, 120, 60, help="Frames per second")
+    t_final = st.slider(
+        "Animation duration (s)", 0.5, 2.0, 2.0, 0.1, help="Total simulation time"
     )
-    render_skip = st.slider(
-        "Render every N frames", 1, 10, 3, 1, help="Update surface visualization every N frames (higher = faster but less smooth)"
+    steps_per_frame = st.slider(
+        "Steps per frame", 5, 100, 25, 5, help="Time steps between frames"
     )
 
 with col2:
@@ -647,9 +740,6 @@ with col3:
     skip_error = st.checkbox(
         "Skip error calculation", False, help="Faster but less information"
     )
-    enforce_BC = st.checkbox(
-        "Enforce BC on analytic", False, help="Validate BCs on analytic solution"
-    )
     cmap = st.selectbox(
         "Colormap (numeric solution)",
         ["viridis", "plasma", "inferno", "magma", "cividis"],
@@ -734,12 +824,11 @@ if st.button("Run Animation", use_container_width=True):
             right_spec=right_spec,
             bottom_spec=bottom_spec,
             top_spec=top_spec,
-            enforce_BC=enforce_BC,
             res=res,
             Lx=Lx,
             Ly=Ly,
             cmap=cmap,
-            render_skip=render_skip,
+            t_final=t_final,
         )
         st.success("✓ Animation stopped!")
 

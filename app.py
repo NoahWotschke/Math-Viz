@@ -414,6 +414,8 @@ def run_solver_streamlit(
 
         if frame_idx >= len(frames_data):
             return (surf, time_text)
+        
+        print(f"UPDATE CALLED: frame_idx={frame_idx}, len(frames_data)={len(frames_data)}")
 
         frame_data = frames_data[frame_idx]
         u_current = frame_data["u"]

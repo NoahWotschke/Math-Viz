@@ -462,9 +462,8 @@ def run_solver_streamlit(
         # Compute and display error
         if not skip_error:
             u_star_pos = frame_data["u_star_pos"]
-            # For error calculation, we compare against the positive BC phase solution
-            assert heat_solver.u_curr is not None
-            err_inf = heat_solver.compute_error(u_star_pos, heat_solver.u_curr)
+            # Compare the stored numerical solution against the analytic solution
+            err_inf = heat_solver.compute_error(u_star_pos, u_current)
             time_text.set_text(
                 rf"$t={t:.2f}\qquad \|u-u^*\|_\infty={err_inf:.2e}\qquad$"
             )

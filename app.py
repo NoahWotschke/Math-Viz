@@ -348,10 +348,11 @@ def run_solver_streamlit(
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    frames_data = []  # List of (u_current, time, phase, lines_data, error) tuples
+    frames_data = []  # List of frame data tuples
     t = 0.0
 
     # Initial frame
+    u_star_pos = heat_solver.get_analytic_solution(t) if not skip_error else None
     frames_data.append(
         {
             "u": heat_solver.u_curr.copy(),
@@ -361,7 +362,7 @@ def run_solver_streamlit(
             "y": heat_solver.y,
             "X": heat_solver.X,
             "Y": heat_solver.Y,
-            "u_star_pos": heat_solver.get_analytic_solution(t),
+            "u_star_pos": u_star_pos,
         }
     )
 
@@ -382,7 +383,7 @@ def run_solver_streamlit(
                 # Apply BCs with new phase immediately to sync solution
                 heat_solver.apply_bc()
 
-        u_star_pos = heat_solver.get_analytic_solution(t)
+        u_star_pos = heat_solver.get_analytic_solution(t) if not skip_error else None
         frames_data.append(
             {
                 "u": heat_solver.u_curr.copy(),
@@ -460,7 +461,7 @@ def run_solver_streamlit(
         )
 
         # Compute and display error
-        if not skip_error:
+        if not skip_error and frame_data["u_star_pos"] is not None:
             u_star_pos = frame_data["u_star_pos"]
             # Compare the stored numerical solution against the analytic solution
             err_inf = heat_solver.compute_error(u_star_pos, u_current)

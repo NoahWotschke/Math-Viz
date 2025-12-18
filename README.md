@@ -3,15 +3,19 @@
 Interactive visualization tool for solving and animating partial differential equations (PDEs) using finite differences and numerical methods.
 
 **Current:** 2D Heat Equation on rectangular domains  
-**Future:** Heat & Wave equations on various domains
+**Coming Soon:** Heat & Wave equations on disc/polar and 1D bar domains
 
 ## Current Features
 
+- **Universal CLI Solver** (`solve.py`) - Single entry point for all PDEs and domains
+- **Modular Architecture** - Domain, Solver, Visualization, and BC abstractions
 - **Explicit Finite Difference Solver** with stability control
-- **Real-time 3D Visualization** & analytical reference comparison
-- **35+ Boundary Condition Functions**
-- **MP4 Export** for animations
-- **CLI + Web Interface**
+- **Real-time 3D Visualization** with analytical reference comparison
+- **40+ Boundary Condition Functions** (composable and extensible)
+- **MP4 Export** for animations with FFmpeg
+- **Web Interface** (Streamlit)
+- **Phase Toggling** - Alternate between positive/negative BC phases during animation
+- **Rotation & Spin** - Visualize 3D solutions from multiple angles
 
 ## Setup
 
@@ -27,9 +31,11 @@ Interactive visualization tool for solving and animating partial differential eq
    cd Math-Viz
    ```
 
-2. **Install dependencies:**
+2. **Create virtual environment and install dependencies:**
    ```bash
-   pip install numpy matplotlib streamlit
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install numpy matplotlib streamlit tqdm
    ```
 
 3. **Optional: Install FFmpeg for video export**
@@ -44,27 +50,82 @@ Interactive visualization tool for solving and animating partial differential eq
    choco install ffmpeg
    ```
 
-### Running Locally
+## Quick Start
 
-**CLI with 3D visualization (recommended):**
+### Interactive 3D Visualization (Recommended)
 ```bash
-python heat2d_rect_fd.py --spin
+python solve.py --pde heat --domain rect --spin
 ```
 
-**Web interface:**
+### Generate MP4 Animation
+```bash
+python solve.py --pde heat --domain rect --save --out animation.mp4 --seconds 20 --fps 60
+```
+
+### Alternate BC Phases
+```bash
+python solve.py --pde heat --domain rect --spin --alternate --steps_per_cycles 1000
+```
+
+### Web Interface
 ```bash
 streamlit run app.py
 ```
 Then open `http://localhost:8501` in your browser
 
-**Generate MP4 animation:**
+## CLI Reference
+
 ```bash
-python heat2d_rect_fd.py --save --out simulation.mp4 --seconds 20 --fps 60
+python solve.py --help
 ```
 
-View all options with:
+**Key Options:**
+- `--pde {heat, wave}` - PDE type (default: heat)
+- `--domain {rect, disc, bar}` - Domain type (default: rect)
+- `--res RES` - Grid resolution in points/unit (default: 21)
+- `--Lx LX --Ly LY` - Domain dimensions (default: 1.0 × 1.0)
+- `--fps FPS` - Animation frame rate (default: 60)
+- `--seconds SECONDS` - Duration in seconds (default: 15)
+- `--spin` - Rotate 3D view during animation
+- `--deg_per_sec DEG` - Rotation speed (default: 10)
+- `--alternate` - Toggle BC phase (positive/negative)
+- `--steps_per_cycles STEPS` - Steps per phase cycle (default: 1000)
+- `--skip_error` - Skip error calculation (faster)
+- `--save` - Export to MP4 instead of live display
+- `--out FILE` - Output MP4 filename (default: pde_solution.mp4)
+
+## Examples
+
+**Rectangle with high resolution:**
 ```bash
-python heat2d_rect_fd.py --help
+python solve.py --pde heat --domain rect --res 51 --Lx 2.0 --Ly 1.0 --spin
+```
+
+**Quick test animation:**
+```bash
+python solve.py --pde heat --domain rect --fps 30 --seconds 5 --save --out test.mp4
+```
+
+**Phase toggling:**
+```bash
+python solve.py --pde heat --domain rect --alternate --steps_per_cycles 500 --spin
+```
+
+## Project Structure
+
+```
+math-viz/
+├── solve.py                    # Universal CLI dispatcher
+├── app.py                      # Streamlit web interface
+├── heat2d/
+│   ├── math_settings.py       # Configuration
+│   ├── vis_settings.py        # Visualization defaults
+│   ├── bc/                    # 40+ boundary condition functions
+│   ├── domains/               # Domain abstractions (rectangle, disc, bar)
+│   ├── solvers/               # PDE solver implementations
+│   ├── analytic/              # Analytical reference solutions
+│   └── visualization/         # Generic 3D visualizer
+└── Project/                   # Documentation and plans
 ```
 
 ## License

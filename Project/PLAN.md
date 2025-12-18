@@ -240,6 +240,86 @@ python solve.py --pde wave --domain bar --L 1.0 --c 1.0
 
 ---
 
+## File Structure After Completion
+
+```
+math-viz/
+├── solve.py                          # TODO: Universal CLI dispatcher
+├── heat2d_rect_fd.py                 # ✅ COMPLETE: Rect heat solver (refactored to use OOP)
+├── heat2d/
+│   ├── __init__.py
+│   ├── math_settings.py              # Configuration (will extend for wave/disc)
+│   ├── vis_settings.py               # Visualization settings
+│   │
+│   ├── bc/                           # ✅ COMPLETE: Boundary conditions
+│   │   ├── __init__.py
+│   │   ├── funcs.py                 # 40+ BC shape functions + combinators
+│   │   └── builder.py               # BC spec constructor (recursive)
+│   │
+│   ├── domains/                      # In Progress
+│   │   ├── __init__.py
+│   │   ├── base.py                  # ✅ Grid dataclass, Domain ABC
+│   │   ├── rectangle.py             # ✅ RectangleDomain (4 boundaries)
+│   │   ├── bar1d.py                 # TODO: Bar1DDomain (2 boundaries, 1D)
+│   │   └── disc.py                  # TODO: DiscDomain (radial + angular)
+│   │
+│   ├── solvers/                      # In Progress
+│   │   ├── __init__.py
+│   │   ├── base.py                  # ✅ SolverConfig, BaseSolver ABC
+│   │   ├── heat2d_rect.py           # ✅ Heat2DRectSolver (explicit FD)
+│   │   ├── heat1d_bar.py            # TODO: Heat1DBarSolver (1D stencil)
+│   │   ├── heat2d_disc.py           # TODO: Heat2DDiscSolver (polar Laplacian)
+│   │   ├── wave1d_bar.py            # TODO: Wave1DBarSolver (2-layer)
+│   │   ├── wave2d_rect.py           # TODO: Wave2DRectSolver (2-layer rect)
+│   │   └── wave2d_disc.py           # TODO: Wave2DDiscSolver (2-layer polar)
+│   │
+│   ├── analytic/                     # In Progress
+│   │   ├── __init__.py
+│   │   ├── heat_rect.py             # ✅ analytic_dirichlet_rect_series()
+│   │   ├── heat_bar.py              # TODO: 1D sine series
+│   │   ├── heat_disc.py             # TODO: 2D Bessel series
+│   │   ├── wave_bar.py              # TODO: 1D sine product
+│   │   ├── wave_rect.py             # TODO: 2D sine product
+│   │   └── wave_disc.py             # TODO: 2D Bessel product
+│   │
+│   └── visualization/               # TODO: Generalized rendering
+│       └── visualizer.py            # Domain-agnostic Visualizer class
+```
+
+---
+
+## File Structure After Completion
+
+```
+
+## Current File Structure (Status - Updated)
+
+### Completed Implementation ✅
+```
+heat2d/
+├── __init__.py
+├── math_settings.py            # Configuration: domain dims, BC specs, solver params
+├── vis_settings.py             # Visualization: plot/animation settings
+│
+├── bc/                         # ✅ REFACTORED: Boundary conditions module
+│   ├── __init__.py
+│   ├── funcs.py               # 40+ BC shape functions + combinators (domain-independent)
+│   └── builder.py             # BC specification-based constructor (recursive)
+│
+├── domains/                    # ✅ CREATED: Domain abstraction layer
+│   ├── __init__.py
+│   ├── base.py                # Grid dataclass, Domain ABC with boundaries()
+│   └── rectangle.py           # RectangleDomain with 4 boundaries (left/right/bottom/top)
+│
+├── solvers/                    # ✅ CREATED: Solver abstraction layer
+│   ├── __init__.py
+│   ├── base.py                # SolverConfig dataclass, BaseSolver ABC
+│   └── heat2d_rect.py         # Heat2DRectConfig, Heat2DRectSolver (2D FD stencil)
+│
+└── analytic/                   # ✅ CREATED: Analytic solutions module
+    ├── __init__.py
+    └── heat_rect.py           # analytic_dirichlet_rect_series() for Laplace on rectangle
+```
 
 ### Key Components by File (Current State)
 
@@ -315,3 +395,59 @@ heat2d/
 └── analytic/             # ✅ Analytic solutions
     └── heat_rect.py      # ✅ Laplace series
 ```
+
+---
+
+## 🌐 Deployment & Portfolio (Proposed)
+
+### Step 9: Create Personal Website (NEW)
+- [ ] **9.1** Set up static site generator or hosting
+  - [ ] Options: GitHub Pages, Vercel, Netlify (free tier)
+  - [ ] Or custom domain with simple HTML/CSS
+  
+- [ ] **9.2** Portfolio page structure
+  - [ ] Project overview (problem, solution, results)
+  - [ ] Download link to GitHub repository
+  - [ ] Installation & quick-start instructions
+  - [ ] Screenshots/GIFs of visualizations
+  - [ ] Technical documentation links
+
+- [ ] **9.3** Interactive demo (optional)
+  - [ ] Embed Streamlit app via iframe
+  - [ ] Or link to hosted Streamlit instance
+  - [ ] Alternative: WebGL 3D viewer (Babylon.js, Three.js)
+
+- [ ] **9.4** GitHub repository setup
+  - [ ] Clean folder structure for distribution
+  - [ ] Comprehensive README (already done)
+  - [ ] requirements.txt for easy pip install
+  - [ ] License file (MIT recommended)
+
+### Step 10: Deploy to Streamlit Cloud (NEW)
+- [ ] **10.1** Prepare for Streamlit Cloud
+  - [ ] Create `requirements.txt` with all dependencies
+  - [ ] Ensure GitHub repo is public (or private with access granted)
+  - [ ] Test locally with `streamlit run app.py`
+
+- [ ] **10.2** Set up Streamlit Cloud
+  - [ ] Sign up at [streamlit.io/cloud](https://streamlit.io/cloud)
+  - [ ] Connect GitHub account
+  - [ ] Select repo and app.py file
+  - [ ] Deploy automatically on push
+
+- [ ] **10.3** Domain configuration (optional)
+  - [ ] Map custom domain to Streamlit Cloud app
+  - [ ] SSL certificate (automatic with Streamlit)
+
+- [ ] **10.4** Update README
+  - [ ] Add link to live Streamlit app
+  - [ ] Note about image compression vs local version
+  - [ ] Clear instructions: "Best quality: download locally"
+
+**Benefits:** 
+- Free hosting with auto-scaling
+- 24/7 uptime
+- Auto-deploys on GitHub push
+- Users can run `app.py` without setup
+
+**Rationale:** Portfolio website is essential for showcasing work to employers/collaborators. Users can download locally for best-quality visualization.

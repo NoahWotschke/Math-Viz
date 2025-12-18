@@ -595,7 +595,7 @@ with col1:
 with col2:
     st.subheader("Physics")
     alpha = st.slider(
-        "Diffusion coefficient (α)", 0.1, 5.0, 1.0, 0.1, help="Thermal diffusivity"
+        "Diffusion coefficient (alpha)", 0.1, 5.0, 1.0, 0.1, help="Thermal diffusivity"
     )
     n_terms = st.slider(
         "Series terms", 10, 500, 200, 20, help="Terms in analytic solution expansion"

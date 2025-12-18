@@ -4,8 +4,9 @@
 
 ```
 math-viz/
-├── solve.py                          # TODO: Universal CLI dispatcher
-├── heat2d_rect_fd.py                 # ✅ COMPLETE: Rect heat solver (refactored to use OOP)
+├── solve.py                          # ✅ COMPLETE: Universal CLI dispatcher (routes all PDEs + domains)
+├── heat2d_rect_fd.py                 # ⚠️ DEPRECATED: Use solve.py instead (solve.py --pde heat --domain rect)
+├── heat2d_disc_fd.py                 # ⚠️ DEPRECATED: Use solve.py instead (solve.py --pde heat --domain disc)
 ├── heat2d/
 │   ├── __init__.py
 │   ├── math_settings.py              # Configuration (will extend for wave/disc)
@@ -42,15 +43,18 @@ math-viz/
 │   │   ├── wave_rect.py             # TODO: 2D sine product
 │   │   └── wave_disc.py             # TODO: 2D Bessel product
 │   │
-│   └── visualization/               # TODO: Generalized rendering
-│       └── visualizer.py            # Domain-agnostic Visualizer class
+│   └── visualization/               # ✅ COMPLETE: Generalized rendering
+│       ├── __init__.py
+│       └── visualizer.py            # ✅ Visualizer3D + VisualizerConfig (domain-agnostic)
 ```
 
 ---
 
-## Current File Structure (Status - Updated)
+## Current File Structure (Status - Updated Dec 19, 2025)
 
 ```
+solve.py                           # ✅ NEW: Universal dispatcher for all PDE/domain combinations
+
 heat2d/
 ├── __init__.py
 ├── math_settings.py            # Configuration: domain dims, BC specs, solver params
@@ -71,9 +75,13 @@ heat2d/
 │   ├── base.py                # SolverConfig dataclass, BaseSolver ABC
 │   └── heat2d_rect.py         # Heat2DRectConfig, Heat2DRectSolver (2D FD stencil)
 │
-└── analytic/                   # ✅ CREATED: Analytic solutions module
+├── analytic/                   # ✅ CREATED: Analytic solutions module
+│   ├── __init__.py
+│   └── heat_rect.py           # analytic_dirichlet_rect_series() for Laplace on rectangle
+│
+└── visualization/             # ✅ NEW: Generic 3D visualization module
     ├── __init__.py
-    └── heat_rect.py           # analytic_dirichlet_rect_series() for Laplace on rectangle
+    └── visualizer.py          # Visualizer3D class (reusable for all PDEs/domains)
 ```
 
 
@@ -122,17 +130,22 @@ Reference solutions for error computation and validation:
 ## File Dependency Graph
 
 ```
-heat2d_rect_fd.py (CLI)
+solve.py (Universal CLI Dispatcher)
     ↓
-heat2d/solvers/heat2d_rect.py (Heat2DRectSolver)
+heat2d/solvers/heat2d_rect.py (Heat2DRectSolver for --pde heat --domain rect)
     ↓
 heat2d/solvers/base.py (BaseSolver ABC)
     ├─→ heat2d/domains/base.py (Domain ABC, Grid)
     │       └─→ heat2d/domains/rectangle.py (RectangleDomain)
     ├─→ heat2d/analytic/heat_rect.py (analytic_dirichlet_rect_series)
-    └─→ heat2d/bc/builder.py (build_bc_from_spec)
-            └─→ heat2d/bc/funcs.py (40+ BC functions)
+    ├─→ heat2d/bc/builder.py (build_bc_from_spec)
+    │       └─→ heat2d/bc/funcs.py (40+ BC functions)
+    └─→ heat2d/visualization/visualizer.py (Visualizer3D - REUSABLE FOR ALL SOLVERS)
 ```
+
+**Key advantage:** All future solvers (Heat1D, Heat2DDisc, Wave*) will reuse `Visualizer3D` via `solve.py`.
+Only need to implement domain-specific logic in solver classes.
+
 
 ## Key Classes
 
@@ -184,37 +197,54 @@ class Heat2DRectSolver(BaseSolver):
 2. Return numpy array on same grid as numerical solution
 3. Export from `heat2d/analytic/__init__.py`
 
-## Current CLI Usage
+## Current Unified CLI (✅ Now Available)
 ```bash
-python heat2d_rect_fd.py --spin --res 51 --seconds 10 --Lx 2.0 --Ly 1.0 --alterate --steps_per_cycles 500
-```
+python solve.py --pde heat --domain rect --spin --res 21 --seconds 10
+python solve.py --pde heat --domain rect --save --out animation.mp4
 
-## Future Unified CLI
-```bash
-python solve.py --pde heat --domain rect --Lx 2.0 --Ly 1.0 --spin
+# Future (after implementing new domains/PDEs):
 python solve.py --pde heat --domain bar --L 1.0
 python solve.py --pde heat --domain disc --R 1.0
 python solve.py --pde wave --domain rect --Lx 1.0 --Ly 1.0 --c 1.0
 ```
 
+## Legacy Scripts (⚠️ Deprecated)
+```bash
+# Old way (still works but not recommended):
+python heat2d_rect_fd.py --spin --res 51 --seconds 10
+python heat2d_disc_fd.py --spin --seconds 10
+
+# New way (unified):
+python solve.py --pde heat --domain rect --spin --res 51 --seconds 10
+python solve.py --pde heat --domain disc --spin --seconds 10
+```
+
 ## Implementation Statistics
 
-| Component  | Files | Lines      | Status                |
-| ---------- | ----- | ---------- | --------------------- |
-| Domains    | 2     | ~250       | ✅ 1/3 planned         |
-| Solvers    | 2     | ~600       | ✅ 1/7 planned         |
-| Analytic   | 1     | ~150       | ✅ 1/6 planned         |
-| BC Library | 2     | ~750       | ✅ Complete            |
-| CLI        | 1     | ~490       | ✅ Working (rect only) |
-| **TOTAL**  | **8** | **~2,240** | **Phase 2/8**         |
+| Component  | Files  | Lines      | Status                     |
+| ---------- | ------ | ---------- | -------------------------- |
+| Domains    | 2      | ~250       | ✅ 1/3 planned              |
+| Solvers    | 2      | ~600       | ✅ 1/7 planned              |
+| Analytic   | 1      | ~150       | ✅ 1/6 planned              |
+| BC Library | 2      | ~750       | ✅ Complete                 |
+| Vis Layer  | 2      | ~350       | ✅ NEW: Generic visualizer  |
+| CLI        | 1      | ~390       | ✅ Complete: solve.py       |
+| **TOTAL**  | **10** | **~2,490** | **Phase 3/8 (↑ from 2/8)** |
+
+**What changed:** Added generic `Visualizer3D` class (+350 LOC) and refactored CLI into `solve.py` (+390 LOC).
+Replaces scattered visualization code in heat2d_rect_fd.py, heat2d_disc_fd.py, etc.
+Net result: Reduced duplication, easier to extend with new domains/PDEs.
 
 ## Next Priorities
 
-1. **Bar1D (Step 4)** - Simplest extension; introduces 1D stencil and line plotting
-2. **Disc (Step 5)** - Introduces polar coordinates and Bessel functions
-3. **Wave (Step 6)** - Introduces 2-layer time stepping and CFL constraints
-4. **Visualization (Step 7)** - Generalize 3D and 1D rendering
-5. **Unified CLI (Step 8)** - Dispatcher supporting all 6 (PDE, domain) combinations
+1. **Disc Domain (Step 5)** - Implement heat2d/domains/disc.py + heat2d/solvers/heat2d_disc.py
+   - Add route in solve.py: `--pde heat --domain disc`
+   - Reuses Visualizer3D automatically
+2. **Bar1D (Step 4)** - 1D solver with line plot visualization extension
+3. **Wave PDEs (Step 6)** - 2-layer time stepping solvers (wave1d_bar, wave2d_rect, wave2d_disc)
+4. **1D Visualization** - Extend Visualizer3D or create Visualizer1D for bar/wave1d
+5. **Full solver matrix** - All 6 (3 PDEs × 2 domains) = heat rect/disc, wave rect/disc/bar, advection, etc.
 
 ---
-*Last updated: December 16, 2025*
+*Last updated: December 19, 2025 - Refactored CLI and visualization layer*
+

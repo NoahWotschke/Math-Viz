@@ -549,7 +549,7 @@ elif pde_type == "Wave 2D (Rectangle)":
 
 st.info(
     "🔗 **For the best quality visualization with real-time 3D rendering, "
-    "[WORK IN PROGRESS] — "  # [download and run locally](https://github.com/yourusername/math-viz)
+    "[download and run locally](https://noahwotschke.github.io/projects.html) — "
     "this web version uses compressed images.**"
 )
 

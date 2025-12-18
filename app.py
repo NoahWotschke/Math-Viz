@@ -586,7 +586,7 @@ with col1:
     st.subheader("Animation")
     fps = st.slider("FPS", 10, 60, 30, help="Frames per second")
     t_final = st.slider(
-        "Animation duration (s)", 0.5, 2.0, 1.0, 0.1, help="Total simulation time"
+        "Animation duration (s)", 0.1, 1.0, 0.1, 0.1, help="Total simulation time"
     )
     steps_per_frame = st.slider(
         "Steps per frame", 5, 100, 30, 5, help="Time steps between frames"

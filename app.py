@@ -472,8 +472,9 @@ def run_solver_streamlit(
         # Compute and display error
         if not skip_error and frame_data["u_star_pos"] is not None:
             u_star_pos = frame_data["u_star_pos"]
+            u_star_neg = -u_star_pos  # Negative phase is just negated
             # Compare the stored numerical solution against the analytic solution
-            err_inf = heat_solver.compute_error(u_star_pos, u_current)
+            err_inf = heat_solver.compute_error(u_star_pos, u_star_neg)
             time_text.set_text(
                 rf"$t={t:.2f}\qquad \|u-u^*\|_\infty={err_inf:.2e}\qquad$"
             )

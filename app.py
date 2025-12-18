@@ -348,12 +348,21 @@ def run_solver_streamlit(
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-    # Pre-compute analytic solution (steady-state, time-independent)
-    u_star_pos = None
+    # Pre-compute analytic solutions (one per phase if alternating, otherwise once)
+    u_star_solutions = {}
     if not skip_error:
         progress_bar.progress(0.05)
         progress_text.write("**5%** — Computing analytic solution...")
-        u_star_pos = heat_solver.get_analytic_solution(0.0)  # Steady-state, computed once
+        # Compute for phase 0
+        u_star_solutions[0] = heat_solver.get_analytic_solution(0.0)
+        # Compute for phase 1 if alternating
+        if alternate:
+            original_phase = heat_solver.phase
+            heat_solver.phase = 1
+            heat_solver.apply_bc()
+            u_star_solutions[1] = heat_solver.get_analytic_solution(0.0)
+            heat_solver.phase = original_phase
+            heat_solver.apply_bc()
     
     frames_data = []  # List of frame data tuples
     t = 0.0
@@ -377,6 +386,9 @@ def run_solver_streamlit(
                 # Apply BCs with new phase immediately to sync solution
                 heat_solver.apply_bc()
 
+        # Get the correct analytic solution for the current phase
+        u_star_pos = u_star_solutions.get(heat_solver.phase) if not skip_error else None
+        
         frames_data.append(
             {
                 "u": heat_solver.u_curr.copy(),

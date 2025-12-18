@@ -363,14 +363,14 @@ def run_solver_streamlit(
             u_star_solutions[1] = heat_solver.get_analytic_solution(0.0)
             heat_solver.phase = original_phase
             heat_solver.apply_bc()
-    
+
     frames_data = []  # List of frame data tuples
     t = 0.0
 
     # Step through solver and collect frames until t_final
     max_steps = int(t_final / (dt * steps_per_frame)) + 1
     step_count = 0
-    
+
     # Collect all frames
     for step in range(max_steps):
         # Run steps for this frame
@@ -388,7 +388,7 @@ def run_solver_streamlit(
 
         # Get the correct analytic solution for the current phase
         u_star_pos = u_star_solutions.get(heat_solver.phase) if not skip_error else None
-        
+
         frames_data.append(
             {
                 "u": heat_solver.u_curr.copy(),
@@ -407,7 +407,7 @@ def run_solver_streamlit(
         progress_text.write(
             f"**{progress*100:.0f}%** — Frame {step+1}/{max_steps} | Phase: {heat_solver.phase}"
         )
-    
+
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 
     # Animation loop - render precalculated frames

@@ -391,8 +391,6 @@ def run_solver_streamlit(
             }
         )
 
-
-
         progress = 0.05 + 0.95 * (step + 1) / max(1, max_steps)
         progress_bar.progress(progress)
         progress_text.write(
@@ -401,11 +399,6 @@ def run_solver_streamlit(
 
     progress_bar.progress(1.0)
     progress_text.write("**100%** — Precalculation complete!")
-
-    # Debug
-    st.write(
-        f"**Debug:** skip_error={skip_error}, u_star_pos is None: {u_star_pos is None}"
-    )
 
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 

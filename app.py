@@ -58,6 +58,7 @@ def get_bc_display_name(func_name):
 BC_DISPLAY_NAMES = [get_bc_display_name(name) for name in BC_FUNCTIONS]
 
 
+@st.cache_data
 def validate_bc_params(func_name, params_dict):
     """Validate and filter parameters for a BC function.
 
@@ -489,7 +490,7 @@ def run_solver_streamlit(
 
         # Convert figure to image (PNG for lossless quality)
         buf = BytesIO()
-        fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+        fig.savefig(buf, format="png", dpi=72, bbox_inches="tight")
         buf.seek(0)
 
         # Display frame
@@ -553,6 +554,22 @@ st.info(
     "this web version uses compressed images.**"
 )
 
+with st.expander("📊 Cloud Performance Tips"):
+    st.write("""
+    **For faster cloud rendering:**
+    - Use "Fast (Cloud)" preset (20 FPS, lower resolution)
+    - Lower grid resolution manually if needed
+    - Reduce animation duration for quicker computation
+    - Skip error calculation if not needed
+    
+    **Typical cloud load times by resolution:**
+    - 21 pts/unit (fast): ~5-10 sec
+    - 31 pts/unit (balanced): ~10-20 sec  
+    - 51+ pts/unit (high quality): ~30-60 sec
+    
+    **Precomputation happens once — playback is smooth!**
+    """)
+
 # Sidebar for parameters
 st.sidebar.header("Solver Parameters")
 
@@ -561,7 +578,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Animation")
     fps = st.slider(
-        "FPS", 10, 60, 30, help="Frames per second (lower = faster cloud rendering)"
+        "FPS", 10, 60, 30, help="Frames per second"
     )
     t_final = st.slider(
         "Animation duration (s)", 0.5, 2.0, 1.0, 0.1, help="Total simulation time"
@@ -740,7 +757,10 @@ with col3:
     show_colorbar = st.checkbox("Show colorbar", True)
     show_function = st.checkbox("Show analytic formula", True)
     skip_error = st.checkbox(
-        "Skip error calculation", False, help="Faster but less information"
+        "Skip error calculation", True, help="Faster but less information"
+    )
+    show_boundary_lines = st.checkbox(
+        "Show boundary lines", True, help="Visualize applied BC values"
     )
     cmap = st.selectbox(
         "Colormap (numeric solution)",
@@ -841,6 +861,37 @@ if st.button("Run Animation", use_container_width=True):
         st.code(traceback.format_exc())
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("⚡ Performance Presets")
+preset = st.sidebar.radio(
+    "Quick preset",
+    ["Custom", "Fast (Cloud)", "Balanced", "High Quality"],
+    index=2,
+    help="Presets optimize for different environments"
+)
+
+# Apply preset defaults
+preset_settings = {
+    "Custom": {"fps": 30, "duration": 1.0, "steps": 30, "res": 21},
+    "Fast (Cloud)": {"fps": 20, "duration": 0.8, "steps": 20, "res": 21},
+    "Balanced": {"fps": 30, "duration": 1.0, "steps": 30, "res": 31},
+    "High Quality": {"fps": 60, "duration": 2.0, "steps": 50, "res": 51},
+}
+
+if preset != "Custom":
+    settings = preset_settings[preset]
+    # These will be used as defaults below
+    default_fps = settings["fps"]
+    default_duration = settings["duration"]
+    default_steps = settings["steps"]
+    default_res = settings["res"]
+else:
+    default_fps = 30
+    default_duration = 1.0
+    default_steps = 30
+    default_res = 21
+
+st.sidebar.markdown("---")
+
 st.sidebar.write(
     """
 **About:** This solver uses finite difference time-stepping to approximate 

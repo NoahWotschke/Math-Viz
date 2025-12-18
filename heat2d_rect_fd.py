@@ -233,11 +233,15 @@ def main():
     # Initialize with boundary conditions (positive phase)
     heat_solver.apply_bc()
 
-    # Get analytic solutions
-    u_star_pos = heat_solver.get_analytic_solution(0.0)
-    u_star_neg = -u_star_pos
+    # Get analytic solutions (computed once, reused for all frames - steady-state)
+    if not args.skip_error:
+        u_star_pos = heat_solver.get_analytic_solution(0.0)
+        u_star_neg = -u_star_pos
+    else:
+        u_star_pos = None
+        u_star_neg = None
 
-    if args.enforce_BC:
+    if args.enforce_BC and u_star_pos is not None:
         phase_key = "pos"
         f_left, f_right, f_bottom, f_top = bc_functions[phase_key]
         u_star_pos[:, 0] = f_left(heat_solver.y)
@@ -253,10 +257,16 @@ def main():
     # Height scaling (so it looks nice if u is in [0,1])
     height_scale = args.height_scale
 
-    # set surf vmin/vmax based on analytic solution
-    absmax = float(np.nanmax(np.abs(u_star_pos)))
-    surf_kwargs["vmin"] = -absmax * height_scale
-    surf_kwargs["vmax"] = absmax * height_scale
+    # set surf vmin/vmax based on analytic solution (if available)
+    if u_star_pos is not None:
+        absmax = float(np.nanmax(np.abs(u_star_pos)))
+        surf_kwargs["vmin"] = -absmax * height_scale
+        surf_kwargs["vmax"] = absmax * height_scale
+    else:
+        # If no analytic solution, scale based on numerical solution range
+        absmax = float(np.nanmax(np.abs(heat_solver.u_curr)))
+        surf_kwargs["vmin"] = -absmax * height_scale
+        surf_kwargs["vmax"] = absmax * height_scale
 
     """ Animation Setup """
     t = 0.0

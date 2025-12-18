@@ -249,7 +249,7 @@ def run_solver_streamlit(
     # Figure setup
     aspect_xy = max(Lx_grid / Ly_grid, Ly_grid / Lx_grid)
     aspect_xy = 1.15 ** np.sqrt(aspect_xy)
-    base_w, base_h = 16, 6.5  # Larger for better browser rendering
+    base_w, base_h = 20, 8  # Larger for better browser rendering
     fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy))
     fig.subplots_adjust(top=0.8)
 
@@ -399,6 +399,16 @@ def run_solver_streamlit(
     
     progress_bar.progress(1.0)
     progress_text.write("**100%** — Precalculation complete!")
+    
+    # Debug: check if solution changed
+    if len(frames_data) > 1:
+        u_first = frames_data[0]["u"]
+        u_last = frames_data[-1]["u"]
+        change = np.max(np.abs(u_last - u_first))
+        st.write(f"**Debug:** Solution change over time: {change:.2e}")
+        if u_star_pos is not None:
+            err_first = heat_solver.compute_error(u_star_pos, -u_star_pos)
+            st.write(f"**Debug:** Sample error value: {err_first:.2e}")
 
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 

@@ -489,7 +489,7 @@ def run_solver_streamlit(
 
         # Convert figure to image (PNG for lossless quality)
         buf = BytesIO()
-        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+        fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
         buf.seek(0)
 
         # Display frame
@@ -560,12 +560,14 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Animation")
-    fps = st.slider("FPS", 10, 120, 60, help="Frames per second")
+    fps = st.slider(
+        "FPS", 10, 60, 30, help="Frames per second (lower = faster cloud rendering)"
+    )
     t_final = st.slider(
-        "Animation duration (s)", 0.5, 2.0, 2.0, 0.1, help="Total simulation time"
+        "Animation duration (s)", 0.5, 2.0, 1.0, 0.1, help="Total simulation time"
     )
     steps_per_frame = st.slider(
-        "Steps per frame", 5, 100, 25, 5, help="Time steps between frames"
+        "Steps per frame", 5, 100, 30, 5, help="Time steps between frames"
     )
 
 with col2:

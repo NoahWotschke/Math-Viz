@@ -402,11 +402,14 @@ def run_solver_streamlit(
             }
         )
 
-        progress = 0.05 + 0.9 * (step + 1) / max(1, max_steps)
+        progress = 0.05 + 0.95 * (step + 1) / max(1, max_steps)
         progress_bar.progress(progress)
         progress_text.write(
             f"**{progress*100:.0f}%** — Frame {step+1}/{max_steps} | Phase: {heat_solver.phase}"
         )
+    
+    progress_bar.progress(1.0)
+    progress_text.write("**100%** — Precalculation complete!")
 
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 
@@ -494,7 +497,10 @@ def run_solver_streamlit(
     frame_num = 0
     while st.session_state.is_animating:
         update(frame_num)
-
+        
+        # Call update to refresh the plot
+        update(frame_num)
+        
         # Convert figure to image (PNG for lossless quality)
         buf = BytesIO()
         fig.savefig(buf, format="png", dpi=75, bbox_inches="tight")

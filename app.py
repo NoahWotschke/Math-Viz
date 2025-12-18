@@ -348,27 +348,21 @@ def run_solver_streamlit(
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
+    # Pre-compute analytic solution (steady-state, time-independent)
+    u_star_pos = None
+    if not skip_error:
+        progress_bar.progress(0.05)
+        progress_text.write("**5%** — Computing analytic solution...")
+        u_star_pos = heat_solver.get_analytic_solution(0.0)  # Steady-state, computed once
+    
     frames_data = []  # List of frame data tuples
     t = 0.0
-
-    # Initial frame
-    u_star_pos = heat_solver.get_analytic_solution(t) if not skip_error else None
-    frames_data.append(
-        {
-            "u": heat_solver.u_curr.copy(),
-            "t": t,
-            "phase": heat_solver.phase,
-            "x": heat_solver.x,
-            "y": heat_solver.y,
-            "X": heat_solver.X,
-            "Y": heat_solver.Y,
-            "u_star_pos": u_star_pos,
-        }
-    )
 
     # Step through solver and collect frames until t_final
     max_steps = int(t_final / (dt * steps_per_frame)) + 1
     step_count = 0
+    
+    # Collect all frames
     for step in range(max_steps):
         # Run steps for this frame
         for _ in range(steps_per_frame):
@@ -383,7 +377,6 @@ def run_solver_streamlit(
                 # Apply BCs with new phase immediately to sync solution
                 heat_solver.apply_bc()
 
-        u_star_pos = heat_solver.get_analytic_solution(t) if not skip_error else None
         frames_data.append(
             {
                 "u": heat_solver.u_curr.copy(),
@@ -397,11 +390,12 @@ def run_solver_streamlit(
             }
         )
 
-        progress = (step + 1) / max(1, max_steps)
+        progress = 0.05 + 0.9 * (step + 1) / max(1, max_steps)
         progress_bar.progress(progress)
         progress_text.write(
             f"**{progress*100:.0f}%** — Frame {step+1}/{max_steps} | Phase: {heat_solver.phase}"
         )
+    
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 
     # Animation loop - render precalculated frames

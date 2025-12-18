@@ -348,7 +348,7 @@ def run_solver_streamlit(
     progress_bar = st.progress(0)
     progress_text = st.empty()
 
-# Pre-compute analytic solution once (steady-state, time-independent)
+    # Pre-compute analytic solution once (steady-state, time-independent)
     # Only compute for phase 0; phase 1 is just the negative
     u_star_pos = None
     if not skip_error:
@@ -391,17 +391,21 @@ def run_solver_streamlit(
             }
         )
 
+
+
         progress = 0.05 + 0.95 * (step + 1) / max(1, max_steps)
         progress_bar.progress(progress)
         progress_text.write(
             f"**{progress*100:.0f}%** — Frame {step+1}/{max_steps} | Phase: {heat_solver.phase}"
         )
-    
+
     progress_bar.progress(1.0)
     progress_text.write("**100%** — Precalculation complete!")
-    
+
     # Debug
-    st.write(f"**Debug:** skip_error={skip_error}, u_star_pos is None: {u_star_pos is None}")
+    st.write(
+        f"**Debug:** skip_error={skip_error}, u_star_pos is None: {u_star_pos is None}"
+    )
 
     st.success(f"✓ Precalculated {len(frames_data)} frames")
 
@@ -414,8 +418,6 @@ def run_solver_streamlit(
 
         if frame_idx >= len(frames_data):
             return (surf, time_text)
-        
-        print(f"UPDATE CALLED: frame_idx={frame_idx}, len(frames_data)={len(frames_data)}")
 
         frame_data = frames_data[frame_idx]
         u_current = frame_data["u"]
@@ -465,13 +467,12 @@ def run_solver_streamlit(
 
         # Compute and display error
         if not skip_error and frame_data["u_star_pos"] is not None:
+            # Update solver's u_curr to match this frame's solution for error calculation
+            heat_solver.u_curr = u_current
             u_star_pos = frame_data["u_star_pos"]
             u_star_neg = -u_star_pos  # Negative phase is just negated
-            # Compare the stored numerical solution against the analytic solution
+            # Compare the current frame's numerical solution against the analytic solution
             err_inf = heat_solver.compute_error(u_star_pos, u_star_neg)
-            # Debug
-            if frame_idx % 50 == 0:  # Print every 50 frames
-                print(f"Frame {frame_idx}: t={t:.3f}, error={err_inf:.2e}, phase={phase}")
             time_text.set_text(
                 rf"$t={t:.2f}\qquad \|u-u^*\|_\infty={err_inf:.2e}\qquad$"
             )
@@ -495,10 +496,10 @@ def run_solver_streamlit(
     frame_num = 0
     while st.session_state.is_animating:
         update(frame_num)
-        
+
         # Call update to refresh the plot
         update(frame_num)
-        
+
         # Convert figure to image (PNG for lossless quality)
         buf = BytesIO()
         fig.savefig(buf, format="png", dpi=75, bbox_inches="tight")

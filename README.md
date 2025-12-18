@@ -128,6 +128,12 @@ math-viz/
 └── Project/                   # Documentation and plans
 ```
 
+## Mathematical Background
+
+For more detailed mathematical derivations and numerical methods, see the companion page on my personal website:
+
+**[Math-Viz: Mathematical Derivations & Methods](https://noahwotschke.github.io/math-viz.html)**
+
 ## License
 
 Open source for educational and research use.

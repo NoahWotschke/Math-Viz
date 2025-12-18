@@ -1,5 +1,17 @@
 # Multi-PDE Modular Solver Framework
 
+## Next Steps & Implementations
+- [ ] Update Website UI
+  - [ ] Add performance presets (low/medium/high)
+  - [ ] remove Emojies
+  - [ ] Restructure layout for clarity
+- [ ] Start Dokumentation on Personal Website
+  - [ ] Derivation of Heat on Rectangle
+  - [ ] Explanation of Numerical Methods
+  - [ ] Explanation of Analytic Solution
+- [ ] Put Wesbite Link on LinkedIn Profile
+
+
 ## To-DO
 - Step 1: Create Abstract Base Classes (Phase 1.1-1.2)
     - [x] **1.1a** Create `heat2d/domains/base.py` with `Domain` abstract base class

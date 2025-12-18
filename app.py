@@ -462,8 +462,9 @@ def run_solver_streamlit(
         # Compute and display error
         if not skip_error:
             u_star_pos = frame_data["u_star_pos"]
-            u_star_neg = -u_star_pos
-            err_inf = heat_solver.compute_error(u_star_pos, u_star_neg)
+            # For error calculation, we compare against the positive BC phase solution
+            assert heat_solver.u_curr is not None
+            err_inf = heat_solver.compute_error(u_star_pos, heat_solver.u_curr)
             time_text.set_text(
                 rf"$t={t:.2f}\qquad \|u-u^*\|_\infty={err_inf:.2e}\qquad$"
             )
@@ -490,7 +491,7 @@ def run_solver_streamlit(
 
         # Convert figure to image (PNG for lossless quality)
         buf = BytesIO()
-        fig.savefig(buf, format="png", dpi=72, bbox_inches="tight")
+        fig.savefig(buf, format="png", dpi=75, bbox_inches="tight")
         buf.seek(0)
 
         # Display frame
@@ -555,7 +556,8 @@ st.info(
 )
 
 with st.expander("📊 Cloud Performance Tips"):
-    st.write("""
+    st.write(
+        """
     **For faster cloud rendering:**
     - Use "Fast (Cloud)" preset (20 FPS, lower resolution)
     - Lower grid resolution manually if needed
@@ -568,7 +570,8 @@ with st.expander("📊 Cloud Performance Tips"):
     - 51+ pts/unit (high quality): ~30-60 sec
     
     **Precomputation happens once — playback is smooth!**
-    """)
+    """
+    )
 
 # Sidebar for parameters
 st.sidebar.header("Solver Parameters")
@@ -577,9 +580,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Animation")
-    fps = st.slider(
-        "FPS", 10, 60, 30, help="Frames per second"
-    )
+    fps = st.slider("FPS", 10, 60, 30, help="Frames per second")
     t_final = st.slider(
         "Animation duration (s)", 0.5, 2.0, 1.0, 0.1, help="Total simulation time"
     )
@@ -757,7 +758,7 @@ with col3:
     show_colorbar = st.checkbox("Show colorbar", True)
     show_function = st.checkbox("Show analytic formula", True)
     skip_error = st.checkbox(
-        "Skip error calculation", True, help="Faster but less information"
+        "Skip error calculation", False, help="Faster but less information"
     )
     show_boundary_lines = st.checkbox(
         "Show boundary lines", True, help="Visualize applied BC values"
@@ -866,7 +867,7 @@ preset = st.sidebar.radio(
     "Quick preset",
     ["Custom", "Fast (Cloud)", "Balanced", "High Quality"],
     index=2,
-    help="Presets optimize for different environments"
+    help="Presets optimize for different environments",
 )
 
 # Apply preset defaults

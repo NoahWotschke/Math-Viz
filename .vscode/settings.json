@@ -1,5 +1,8 @@
 {
   "python.defaultInterpreterPath": ".venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/mathvis-core"
+  ],
   "editor.formatOnSave": true,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"

@@ -21,22 +21,31 @@ python3 solve.py --pde heat --domain rect --save
 
 ## Project Structure
 
-This is a monorepo with three subprojects:
+This is a monorepo with three independent subprojects:
 
 ### **mathvis-core** - Shared Solver Library
-- PDE solvers, domains, boundary conditions, visualization
+- Core PDE solvers (Heat, Wave equations)
+- Domain abstractions (Rectangle, Disc, Bar)
+- 40+ customizable boundary condition functions
+- Analytical reference solutions
+- 3D visualization system
 - Base package that both CLI and web depend on
 - Dependencies: numpy, matplotlib, tqdm
 
 ### **mathvis-cli** - Command-Line Interface  
-- Standalone solver for batch processing and automation
-- Full argument parsing and MP4 export
+- Universal solver entry point (`solve.py`)
+- Full argument parsing for all parameters
+- MP4 video export with FFmpeg
+- Batch processing and automation
 - Can run without GUI or browser
+- Interactive 3D visualization via matplotlib
 
 ### **mathvis-web** - Streamlit Web UI
-- Interactive browser-based interface
-- Real-time parameter adjustment
-- Live visualization and animation playback
+- Browser-based interactive interface (http://localhost:8501)
+- Real-time parameter adjustment with live updates
+- 3D visualization in web browser
+- Performance presets (Fast, Balanced, High Quality)
+- Animation playback and frame export
 
 ## Features
 
@@ -64,23 +73,47 @@ This is a monorepo with three subprojects:
 ### Prerequisites
 - Python 3.11 or higher
 - Git
+- Optional: FFmpeg for MP4 video export
 
 ### Installation
 
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/NoahWotschke/Math-Viz.git
-   cd Math-Viz
+   cd math-viz
    ```
 
-2. **Create virtual environment and install dependencies:**
+2. **Create and activate virtual environment:**
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install numpy matplotlib streamlit tqdm
    ```
 
-3. **Optional: Install FFmpeg for video export**
+3. **Install mathvis-core (shared library):**
+   ```bash
+   cd mathvis-core
+   pip install -e .
+   cd ..
+   ```
+
+4. **Choose your interface:**
+
+   **Option A: Web UI (Recommended for exploration)**
+   ```bash
+   cd mathvis-web
+   pip install -e .
+   streamlit run app.py
+   # Opens at http://localhost:8501
+   ```
+
+   **Option B: Command-Line (for automation)**
+   ```bash
+   cd mathvis-cli
+   pip install -e .
+   python3 solve.py --pde heat --domain rect --spin
+   ```
+
+5. **Optional: Install FFmpeg for video export**
    ```bash
    # macOS
    brew install ffmpeg
@@ -153,21 +186,32 @@ python solve.py --pde heat --domain rect --fps 30 --seconds 5 --save --out test.
 python solve.py --pde heat --domain rect --alternate --steps_per_cycles 500 --spin
 ```
 
-## Project Structure
+## Directory Structure
 
 ```
 math-viz/
-├── solve.py                    # Universal CLI dispatcher
-├── app.py                      # Streamlit web interface
-├── heat2d/
-│   ├── math_settings.py       # Configuration
-│   ├── vis_settings.py        # Visualization defaults
-│   ├── bc/                    # 40+ boundary condition functions
-│   ├── domains/               # Domain abstractions (rectangle, disc, bar)
-│   ├── solvers/               # PDE solver implementations
-│   ├── analytic/              # Analytical reference solutions
-│   └── visualization/         # Generic 3D visualizer
-└── Project/                   # Documentation and plans
+├── mathvis-core/               # Shared solver library
+│   ├── PDEs/
+│   │   ├── solvers/           # PDE solver implementations (Heat, Wave)
+│   │   ├── domains/           # Domain abstractions (Rectangle, Disc, Bar)
+│   │   ├── bc/                # 40+ boundary condition functions
+│   │   ├── analytic/          # Analytical reference solutions
+│   │   ├── visualization/     # 3D visualization system
+│   │   ├── math_settings.py   # Mathematical configuration
+│   │   └── vis_settings.py    # Visualization defaults
+│   └── setup.py
+│
+├── mathvis-cli/                # Command-line interface
+│   ├── solve.py               # Universal CLI dispatcher
+│   └── setup.py
+│
+├── mathvis-web/                # Streamlit web interface
+│   ├── app.py                 # Streamlit application
+│   └── setup.py
+│
+├── Project/                    # Documentation and architecture plans
+├── Backups/                    # Legacy backup files
+└── README.md                   # This file
 ```
 
 ## Mathematical Background

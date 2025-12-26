@@ -349,12 +349,10 @@ def run_solver_streamlit(
     progress_text = st.empty()
 
     # Pre-compute analytic solution once (steady-state, time-independent)
-    # Only compute for phase 0; phase 1 is just the negative
-    u_star_pos = None
-    if not skip_error:
-        progress_bar.progress(0.05)
-        progress_text.write("**5%** — Computing analytic solution...")
-        u_star_pos = heat_solver.get_analytic_solution(0.0)
+    # Always compute for wireframe display regardless of skip_error setting
+    progress_bar.progress(0.05)
+    progress_text.write("**5%** — Computing analytic solution...")
+    u_star_pos = heat_solver.get_analytic_solution(0.0)
 
     frames_data = []  # List of frame data tuples
     t = 0.0
@@ -519,9 +517,20 @@ def run_solver_streamlit(
 # Streamlit UI
 # ============================================================================
 
-st.set_page_config(page_title="PDE Solver", layout="wide")
+st.set_page_config(page_title="PDE Visualization Framework", layout="wide")
 
-st.title("PDE Solver")
+# Initialize preset settings early for slider defaults
+preset_settings = {
+    "Fast (Cloud)": {"fps": 30, "duration": 0.5, "steps": 15, "res": 21},
+    "Balanced": {"fps": 60, "duration": 0.5, "steps": 30, "res": 51},
+    "High Quality": {"fps": 120, "duration": 0.5, "steps": 60, "res": 71},
+}
+
+# Get current preset (default to Balanced)
+if "current_preset" not in st.session_state:
+    st.session_state.current_preset = "Balanced"
+
+st.title("PDE Visualization Framework")
 
 # PDE Type Selector
 pde_type = st.selectbox(
@@ -536,21 +545,21 @@ pde_type = st.selectbox(
     help="Choose which PDE to solve. Other options coming soon.",
 )
 
-if pde_type == "Heat 2D (Rectangle)":
+if pde_type == "Laplace-Neumann Problem (Rectangle)":
     st.write(
         """
     Visualize the 2D heat equation solving on a rectangle using finite differences.
     Adjust parameters below and click **Run Animation** to visualize the solution.
     """
     )
-elif pde_type == "Heat 1D (Bar)":
-    st.info("🚧 **Heat 1D (Bar) solver coming soon!**")
+elif pde_type == "Heat-EQ 1D (Bar)":
+    st.info("**Heat 1D (Bar) solver coming soon!**")
     st.stop()
 elif pde_type == "Heat 2D (Disc)":
-    st.info("🚧 **Heat 2D (Disc) solver coming soon!**")
+    st.info("**Heat 2D (Disc) solver coming soon!**")
     st.stop()
 elif pde_type == "Wave 2D (Rectangle)":
-    st.info("🚧 **Wave 2D (Rectangle) solver coming soon!**")
+    st.info("**Wave 2D (Rectangle) solver coming soon!**")
     st.stop()
 
 st.info(
@@ -559,37 +568,34 @@ st.info(
     "this web version uses compressed images.**"
 )
 
-with st.expander("📊 Cloud Performance Tips"):
-    st.write(
-        """
-    **For faster cloud rendering:**
-    - Use "Fast (Cloud)" preset (20 FPS, lower resolution)
-    - Lower grid resolution manually if needed
-    - Reduce animation duration for quicker computation
-    - Skip error calculation if not needed
-    
-    **Typical cloud load times by resolution:**
-    - 21 pts/unit (fast): ~5-10 sec
-    - 31 pts/unit (balanced): ~10-20 sec  
-    - 51+ pts/unit (high quality): ~30-60 sec
-    
-    **Precomputation happens once — playback is smooth!**
-    """
-    )
-
 # Sidebar for parameters
 st.sidebar.header("Solver Parameters")
+
+# Preset selector in sidebar
+st.sidebar.subheader("Performance Presets")
+preset = st.sidebar.radio(
+    "Quick preset",
+    ["Fast (Cloud)", "Balanced", "High Quality"],
+    index=(1 if st.session_state.current_preset == "Balanced" else 
+           (0 if st.session_state.current_preset == "Fast (Cloud)" else 2)),
+    help="Presets optimize for different environments",
+)
+if st.session_state.current_preset != preset:
+    st.session_state.current_preset = preset
+    st.rerun()
+
+preset_values = preset_settings[preset]
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Animation")
-    fps = st.slider("FPS", 10, 60, 30, help="Frames per second")
+    fps = st.slider("FPS", 10, 120, preset_values["fps"], help="Frames per second")
     t_final = st.slider(
-        "Animation duration (s)", 0.1, 1.0, 0.1, 0.1, help="Total simulation time"
+        "Animation duration (s)", 0.1, 2.0, preset_values["duration"], 0.1, help="Total simulation time"
     )
     steps_per_frame = st.slider(
-        "Steps per frame", 5, 100, 30, 5, help="Time steps between frames"
+        "Steps per frame", 5, 100, preset_values["steps"], 5, help="Time steps between frames"
     )
 
 with col2:
@@ -780,7 +786,7 @@ with col4:
     alternate = st.checkbox(
         "Toggle alternate BC", False, help="Switch between two boundary conditions"
     )
-    res = st.slider("Grid resolution", 21, 101, 21, 10, help="Points per unit length")
+    res = st.slider("Grid resolution", 21, 101, preset_values["res"], 10, help="Points per unit length")
     deg_per_sec = st.slider(
         "Rotation speed (deg/sec)",
         1.0,
@@ -866,41 +872,20 @@ if st.button("Run Animation", use_container_width=True):
         st.code(traceback.format_exc())
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("⚡ Performance Presets")
-preset = st.sidebar.radio(
-    "Quick preset",
-    ["Custom", "Fast (Cloud)", "Balanced", "High Quality"],
-    index=2,
-    help="Presets optimize for different environments",
-)
-
-# Apply preset defaults
-preset_settings = {
-    "Custom": {"fps": 30, "duration": 1.0, "steps": 30, "res": 21},
-    "Fast (Cloud)": {"fps": 20, "duration": 0.8, "steps": 20, "res": 21},
-    "Balanced": {"fps": 30, "duration": 1.0, "steps": 30, "res": 31},
-    "High Quality": {"fps": 60, "duration": 2.0, "steps": 50, "res": 51},
-}
-
-if preset != "Custom":
-    settings = preset_settings[preset]
-    # These will be used as defaults below
-    default_fps = settings["fps"]
-    default_duration = settings["duration"]
-    default_steps = settings["steps"]
-    default_res = settings["res"]
-else:
-    default_fps = 30
-    default_duration = 1.0
-    default_steps = 30
-    default_res = 21
-
-st.sidebar.markdown("---")
 
 st.sidebar.write(
     """
-**About:** This solver uses finite difference time-stepping to approximate 
-the 2D parabolic heat equation with Dirichlet boundary conditions. 
-The left plot shows the numerical solution; the right shows the analytic reference.
+**📊 Performance Tips:**
+- Use "Fast (Cloud)" preset for quick cloud rendering (20 FPS, lower resolution)
+- Lower grid resolution manually if needed
+- Reduce animation duration for quicker computation
+- Skip error calculation if not needed
+
+**Typical cloud load times:**
+- 21 pts/unit (fast): ~5-10 sec
+- 31 pts/unit (balanced): ~10-20 sec  
+- 51+ pts/unit (high quality): ~30-60 sec
+
+**Precomputation happens once — playback is smooth!**
 """
 )

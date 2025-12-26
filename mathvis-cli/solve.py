@@ -89,12 +89,9 @@ def solve_heat_rect(args) -> None:
     heat_solver.apply_bc()
 
     # =========== ANALYTIC SOLUTION ===========
-    if not args.skip_error:
-        u_star_pos = heat_solver.get_analytic_solution(0.0)
-        u_star_neg = -u_star_pos
-    else:
-        u_star_pos = None
-        u_star_neg = None
+    # Always compute for wireframe display, regardless of skip_error setting
+    u_star_pos = heat_solver.get_analytic_solution(0.0)
+    u_star_neg = -u_star_pos
 
     if args.enforce_BC and u_star_pos is not None:
         phase_key = "pos"

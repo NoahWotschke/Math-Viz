@@ -318,7 +318,7 @@ class Visualizer3D:
             raise RuntimeError("Figure not initialized. Call setup() first.")
 
     def show(self):
-        """Display the animation interactively."""
+        """Display the animation interactively in a live window."""
         if self.fig:
             plt.show()
 

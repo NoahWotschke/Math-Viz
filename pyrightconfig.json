@@ -1,17 +1,18 @@
 {
-  "pythonVersion": "3.11",
-  "pythonPlatform": "macOS",
-  "typeCheckingMode": "basic",
-  "include": [
-    "mathvis-cli",
-    "mathvis-web",
-    "mathvis-core"
-  ],
-  "extraPaths": [
-    "mathvis-core"
-  ],
-  "reportMissingImports": true,
-  "reportMissingTypeStubs": false,
-  "venvPath": ".",
-  "venv": ".venv"
+    "pythonVersion": "3.11",
+    "pythonPlatform": "macOS",
+    "typeCheckingMode": "basic",
+    "include": [
+        "mathvis-cli",
+        "mathvis-web",
+        "mathvis-core"
+    ],
+    "extraPaths": [
+        "mathvis-core"
+    ],
+    "reportMissingImports": false,
+    "reportMissingTypeStubs": false,
+    "venvPath": ".",
+    "venv": ".venv",
+    "pythonPath": ".venv/bin/python"
 }

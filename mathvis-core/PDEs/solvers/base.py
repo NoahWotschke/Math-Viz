@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
-from heat2d.domains.base import Domain, Grid
+from PDEs.domains.base import Domain, Grid
 
 
 @dataclass

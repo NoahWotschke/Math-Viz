@@ -10,10 +10,10 @@ Uses central differences in space, forward Euler in time.
 from typing import Dict, List, Optional
 import numpy as np
 
-from heat2d.domains.base import Domain, Grid
-from heat2d.domains.rectangle import RectangleDomain
-from heat2d.solvers.base import BaseSolver, SolverConfig
-from heat2d.analytic.heat_rect import analytic_dirichlet_rect_series
+from PDEs.domains.base import Domain, Grid
+from PDEs.domains.rectangle import RectangleDomain
+from PDEs.solvers.base import BaseSolver, SolverConfig
+from PDEs.analytic.heat_rect import analytic_dirichlet_rect_series
 
 
 class Heat2DRectConfig(SolverConfig):

@@ -18,14 +18,14 @@ import sys
 from typing import Optional
 
 # Import solver modules
-from heat2d.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
-from heat2d.domains.rectangle import RectangleDomain
-from heat2d.domains.base import Grid as DomainGrid
-from heat2d.visualization.visualizer import Visualizer3D, VisualizerConfig
-import heat2d.vis_settings as vis
-import heat2d.bc.funcs as bc
-import heat2d.math_settings as math_settings
-from heat2d.bc.builder import build_bc_from_spec
+from PDEs.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
+from PDEs.domains.rectangle import RectangleDomain
+from PDEs.domains.base import Grid as DomainGrid
+from PDEs.visualization.visualizer import Visualizer3D, VisualizerConfig
+import PDEs.vis_settings as vis
+import PDEs.bc.funcs as bc
+import PDEs.math_settings as math_settings
+from PDEs.bc.builder import build_bc_from_spec
 
 import numpy as np
 

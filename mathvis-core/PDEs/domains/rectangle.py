@@ -7,7 +7,7 @@ Supports rectangular domains [0, Lx] × [0, Ly] with 4 Dirichlet boundaries.
 from typing import List, Dict
 import numpy as np
 
-from heat2d.domains.base import Domain, Grid
+from PDEs.domains.base import Domain, Grid
 
 
 class RectangleDomain(Domain):

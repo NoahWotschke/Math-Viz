@@ -18,12 +18,12 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from io import BytesIO
 import time
-import heat2d.vis_settings as vis
-import heat2d.bc.funcs as bc
-from heat2d.domains.rectangle import RectangleDomain
-from heat2d.domains.base import Grid as DomainGrid
-from heat2d.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
-from heat2d.bc.builder import build_bc_from_spec
+import PDEs.vis_settings as vis
+import PDEs.bc.funcs as bc
+from PDEs.domains.rectangle import RectangleDomain
+from PDEs.domains.base import Grid as DomainGrid
+from PDEs.solvers.heat2d_rect import Heat2DRectSolver, Heat2DRectConfig
+from PDEs.bc.builder import build_bc_from_spec
 
 # Initialize session state for stop button
 if "is_animating" not in st.session_state:

@@ -1,8 +1,50 @@
-# Math-Viz: PDE Visualization Framework
+# MathVis: PDE Solver & Visualization
 
-Interactive visualization tool for solving and animating partial differential equations (PDEs) using finite differences and numerical methods.
+A modular system for solving PDEs with both CLI and web interfaces. Split into three independent projects sharing a common solver library.
 
-**Current:** 2D Heat Equation on rectangular domains  
+## Quick Start
+
+### Web UI (Recommended)
+```bash
+cd mathvis-web
+pip install -e ../mathvis-core -q
+pip install -e . -q
+streamlit run app.py
+```
+
+### Command Line
+```bash
+cd mathvis-cli
+pip install -e ../mathvis-core -q
+python3 solve.py --pde heat --domain rect --save
+```
+
+## Project Structure
+
+This is a monorepo with three subprojects:
+
+### **mathvis-core** - Shared Solver Library
+- PDE solvers, domains, boundary conditions, visualization
+- Base package that both CLI and web depend on
+- Dependencies: numpy, matplotlib, tqdm
+
+### **mathvis-cli** - Command-Line Interface  
+- Standalone solver for batch processing and automation
+- Full argument parsing and MP4 export
+- Can run without GUI or browser
+
+### **mathvis-web** - Streamlit Web UI
+- Interactive browser-based interface
+- Real-time parameter adjustment
+- Live visualization and animation playback
+
+## Features
+
+- **Multiple PDEs:** Heat, Wave equations (extensible)
+- **Flexible Domains:** Rectangle (disc coming soon)
+- **Advanced BCs:** Customizable boundary conditions
+- **3D Visualization:** Surface plots with animations
+- **Dual Interfaces:** CLI for automation, web for exploration  
 **Coming Soon:** Heat & Wave equations on disc/polar and 1D bar domains
 
 ## Current Features

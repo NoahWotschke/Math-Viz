@@ -117,6 +117,7 @@ def solve_heat_rect(args) -> None:
         height_scale=args.height_scale,
         show_colorbar=args.show_colorbar,
         show_function=args.show_function,
+        viz_mode=args.viz_mode,
         skip_error=args.skip_error,
         save=args.save,
         out=args.out,
@@ -140,20 +141,23 @@ def solve_heat_rect(args) -> None:
     f_bottom_vals = f_bottom(x_samp)
     f_top_vals = f_top(x_samp)
 
-    boundary_lines_data = {
-        "num": [
-            (0 * y_samp, y_samp, f_left_vals, "left"),
-            (Lx_grid + 0 * y_samp, y_samp, f_right_vals, "right"),
-            (x_samp, 0 * x_samp, f_bottom_vals, "bottom"),
-            (x_samp, Ly_grid + 0 * x_samp, f_top_vals, "top"),
-        ],
-        "ref": [
-            (0 * y_samp, y_samp, f_left_vals, "left"),
-            (Lx_grid + 0 * y_samp, y_samp, f_right_vals, "right"),
-            (x_samp, 0 * x_samp, f_bottom_vals, "bottom"),
-            (x_samp, Ly_grid + 0 * x_samp, f_top_vals, "top"),
-        ],
-    }
+    # Boundary lines only for 3D modes
+    boundary_lines_data = None
+    if vis_config.viz_mode in ["3d", "both"]:
+        boundary_lines_data = {
+            "num": [
+                (0 * y_samp, y_samp, f_left_vals, "left"),
+                (Lx_grid + 0 * y_samp, y_samp, f_right_vals, "right"),
+                (x_samp, 0 * x_samp, f_bottom_vals, "bottom"),
+                (x_samp, Ly_grid + 0 * x_samp, f_top_vals, "top"),
+            ],
+            "ref": [
+                (0 * y_samp, y_samp, f_left_vals, "left"),
+                (Lx_grid + 0 * y_samp, y_samp, f_right_vals, "right"),
+                (x_samp, 0 * x_samp, f_bottom_vals, "bottom"),
+                (x_samp, Ly_grid + 0 * x_samp, f_top_vals, "top"),
+            ],
+        }
 
     analytic_title = (
         r"$u(x,y) = u_n + u_m + v \quad\text{where}$"
@@ -195,14 +199,15 @@ def solve_heat_rect(args) -> None:
             heat_solver.step_once()
             t[0] += dt
 
-        # Update phase and boundary lines if needed
-        assert heat_solver.x is not None and heat_solver.y is not None
-        heat_solver.update_phase_and_lines(
-            boundary_lines,
-            heat_solver.y,
-            heat_solver.x,
-            args.height_scale,
-        )
+        # Update phase and boundary lines if needed (3D modes only)
+        if boundary_lines["num"] or boundary_lines["ref"]:
+            assert heat_solver.x is not None and heat_solver.y is not None
+            heat_solver.update_phase_and_lines(
+                boundary_lines,
+                heat_solver.y,
+                heat_solver.x,
+                args.height_scale,
+            )
 
         # Prepare state update
         state = {}
@@ -353,6 +358,12 @@ Examples:
         action="store_false",
         dest="show_function",
         help="Hide analytic solution formula",
+    )
+    parser.add_argument(
+        "--viz-mode",
+        choices=["3d", "2d", "both"],
+        default="3d",
+        help="Visualization mode: 3d surfaces only, 2d contours only, or both (default: 3d)",
     )
     parser.add_argument(
         "--skip_error", action="store_true", help="Skip error calculation (faster)"

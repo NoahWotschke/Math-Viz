@@ -8,6 +8,7 @@ boundary condition visualization, and MP4 export for different domain types
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 import numpy as np
+import matplotlib.gridspec as gridspec
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -29,6 +30,7 @@ class VisualizerConfig:
     height_scale: float = 1.0
     show_colorbar: bool = True
     show_function: bool = True
+    viz_mode: str = "3d"  # "3d", "2d", or "both"
     elev: float = 25
     azim: float = -60
     skip_error: bool = False
@@ -70,6 +72,8 @@ class Visualizer3D:
         self.fig: Optional[Figure] = None
         self.ax_num: Optional[Any] = None  # 3D Axes
         self.ax_ref: Optional[Any] = None  # 3D Axes
+        self.ax_contour_num: Optional[Any] = None  # 2D Contour Axes
+        self.ax_contour_ref: Optional[Any] = None  # 2D Contour Axes
 
         # Drawable objects
         self.surf: Optional[Any] = None
@@ -78,6 +82,12 @@ class Visualizer3D:
         self.boundary_lines_num: list = []
         self.boundary_lines_ref: list = []
         self.time_text: Optional[Any] = None
+        self.contour_num: Optional[Any] = None
+        self.contour_ref: Optional[Any] = None
+
+        # Store analytical solutions for phase toggling in 2D
+        self.u_star_pos: Optional[np.ndarray] = None
+        self.u_star_neg: Optional[np.ndarray] = None
 
         # Animation state
         self.frame_count = 0
@@ -132,11 +142,47 @@ class Visualizer3D:
         aspect_xy = 1.15 ** np.sqrt(max(ratio, 1.0 / ratio))
 
         base_w, base_h = 12, 5
-        self.fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy))
-        self.fig.subplots_adjust(top=0.75)
-
-        self.ax_num = self.fig.add_subplot(1, 2, 1, projection="3d")
-        self.ax_ref = self.fig.add_subplot(1, 2, 2, projection="3d")
+        if self.config.viz_mode == "both":
+            self.fig = plt.figure(
+                figsize=(base_w * aspect_xy * 2, base_h * aspect_xy * 1.3)
+            )
+            # Create separate GridSpecs for 3D and 2D rows with different spacing
+            gs_3d = gridspec.GridSpec(
+                1,
+                2,
+                figure=self.fig,
+                left=0.08,
+                right=0.80,
+                top=0.76,
+                bottom=0.48,
+                wspace=0.05,  # Spacing for 3D plots
+            )
+            gs_2d = gridspec.GridSpec(
+                1,
+                2,
+                figure=self.fig,
+                left=0.08,
+                right=0.92,
+                top=0.42,
+                bottom=0.1,
+                wspace=0.3,  # Spacing for 2D plots (adjust separately if needed)
+            )
+            self.ax_num = self.fig.add_subplot(gs_3d[0, 0], projection="3d")
+            self.ax_ref = self.fig.add_subplot(gs_3d[0, 1], projection="3d")
+            self.ax_contour_num = self.fig.add_subplot(gs_2d[0, 0])
+            self.ax_contour_ref = self.fig.add_subplot(gs_2d[0, 1])
+        elif self.config.viz_mode == "2d":
+            self.fig = plt.figure(
+                figsize=(base_w * aspect_xy, base_h * aspect_xy * 0.6)
+            )
+            self.fig.subplots_adjust(top=0.85, left=0.08, right=0.92, wspace=0.3)
+            self.ax_contour_num = self.fig.add_subplot(1, 2, 1)
+            self.ax_contour_ref = self.fig.add_subplot(1, 2, 2)
+        else:  # "3d"
+            self.fig = plt.figure(figsize=(base_w * aspect_xy, base_h * aspect_xy))
+            self.fig.subplots_adjust(top=0.75)
+            self.ax_num = self.fig.add_subplot(1, 2, 1, projection="3d")
+            self.ax_ref = self.fig.add_subplot(1, 2, 2, projection="3d")
 
         # Set vmin/vmax based on analytic solution if available
         if u_star_pos is not None:
@@ -148,8 +194,12 @@ class Visualizer3D:
             self.surf_kwargs["vmin"] = -absmax * self.config.height_scale
             self.surf_kwargs["vmax"] = absmax * self.config.height_scale
 
-        # Wireframes for analytical solution (positive and negative phases)
-        if u_star_pos is not None:
+        # Store analytical solutions for animation phase toggling
+        self.u_star_pos = u_star_pos
+        self.u_star_neg = u_star_neg
+
+        # Wireframes for analytical solution (positive and negative phases) - 3D modes only
+        if u_star_pos is not None and self.ax_ref is not None:
             self.wf_pos = self.ax_ref.plot_wireframe(
                 X, Y, self.config.height_scale * u_star_pos, **self.wire_kwargs
             )
@@ -159,10 +209,21 @@ class Visualizer3D:
                 )
                 self.wf_neg.set_visible(False)  # type: ignore  # Start with positive phase
 
-        # Initial numerical surface
-        self.surf = self.ax_num.plot_surface(
-            X, Y, self.config.height_scale * u_init, **self.surf_kwargs
-        )
+        # Initial numerical surface (3D modes only)
+        if self.config.viz_mode in ["3d", "both"] and self.ax_num is not None:
+            self.surf = self.ax_num.plot_surface(
+                X, Y, self.config.height_scale * u_init, **self.surf_kwargs
+            )
+
+        # Initial contour plots (2D and both modes)
+        if self.config.viz_mode in ["2d", "both"] and self.ax_contour_num is not None:
+            self.contour_num = self.ax_contour_num.contourf(
+                X, Y, u_init, levels=20, cmap="RdBu_r"
+            )
+            if u_star_pos is not None and self.ax_contour_ref is not None:
+                self.contour_ref = self.ax_contour_ref.contourf(
+                    X, Y, u_star_pos, levels=20, cmap="RdBu_r"
+                )
 
         # Boundary lines
         self._setup_boundary_lines(boundary_lines_data)
@@ -171,23 +232,50 @@ class Visualizer3D:
         self._setup_axes(X, Y)
 
         # Colorbar
-        if self.config.show_colorbar and self.surf is not None and self.fig is not None:
-            self.fig.colorbar(
-                self.surf,
-                ax=[self.ax_num, self.ax_ref],
-                shrink=0.7,
-                pad=0.08,
-                label="u (temp)",
-            )
+        if self.config.show_colorbar and self.fig is not None:
+            if self.config.viz_mode == "3d" and self.surf is not None:
+                self.fig.colorbar(
+                    self.surf,
+                    ax=[self.ax_num, self.ax_ref],  # type: ignore
+                    shrink=0.7,
+                    pad=0.08,
+                    label="u (temp)",
+                )
+            elif (
+                self.config.viz_mode in ["2d", "both"] and self.contour_num is not None
+            ):
+                # Build list of valid axes for colorbar
+                contour_axes = []
+                if self.ax_contour_num is not None:
+                    contour_axes.append(self.ax_contour_num)
+                if self.ax_contour_ref is not None:
+                    contour_axes.append(self.ax_contour_ref)
+
+                if contour_axes:
+                    self.fig.colorbar(
+                        self.contour_num,
+                        ax=contour_axes if len(contour_axes) > 1 else contour_axes[0],  # type: ignore
+                        shrink=0.7,
+                        pad=0.08,
+                        label="u (temp)",
+                    )
 
         # Analytic title
-        if self.config.show_function and analytic_title and self.ax_ref is not None:
-            self.ax_ref.set_title(analytic_title, pad=12)
+        if self.config.show_function and analytic_title:
+            if self.ax_ref is not None:  # 3D mode
+                self.ax_ref.set_title(analytic_title, pad=12)
+            elif self.ax_contour_ref is not None:  # 2D mode
+                self.ax_contour_ref.set_title(analytic_title, pad=12, fontsize=9)
 
-        # Time text
-        self.time_text = self.ax_num.text2D(
-            0.02, 0.98, "", transform=self.ax_num.transAxes
-        )
+        # Time text (3D modes only)
+        if self.ax_num is not None:
+            self.time_text = self.ax_num.text2D(
+                0.02, 0.98, "", transform=self.ax_num.transAxes
+            )
+
+        # Set initial titles for 2D mode (will be updated in animate)
+        if self.ax_contour_num is not None:
+            self.ax_contour_num.set_title("", fontsize=10)
 
     def _setup_boundary_lines(self, boundary_lines_data: Optional[dict]) -> None:
         """Set up 3D curves representing boundary conditions."""
@@ -224,6 +312,7 @@ class Visualizer3D:
         Lx = X.max() - X.min()
         Ly = Y.max() - Y.min()
 
+        # Setup 3D axes (only for 3D modes)
         for ax in [self.ax_num, self.ax_ref]:
             if ax is not None:
                 ax.set_xlabel("x")
@@ -234,6 +323,15 @@ class Visualizer3D:
                 ax.set_zlim(-1, 1)  # type: ignore
                 ax.view_init(elev=self.config.elev, azim=self.config.azim)  # type: ignore
                 ax.set_box_aspect((Lx / Ly, 1.0, 1.0))  # type: ignore
+
+        # Setup 2D contour axes
+        for ax in [self.ax_contour_num, self.ax_contour_ref]:
+            if ax is not None:
+                ax.set_xlabel("x")
+                ax.set_ylabel("y")
+                ax.set_xlim(X.min(), X.max())
+                ax.set_ylim(Y.min(), Y.max())
+                ax.set_aspect("equal")
 
     def create_animation(
         self,
@@ -263,12 +361,24 @@ class Visualizer3D:
             # Get current solution
             u_current = u_curr_getter()
 
-            # Update surface
-            if self.surf is not None:
-                self.surf.remove()
-            if self.ax_num is not None:
-                self.surf = self.ax_num.plot_surface(  # type: ignore
-                    X, Y, self.config.height_scale * u_current, **self.surf_kwargs
+            # Update surface (3D modes only)
+            if self.config.viz_mode in ["3d", "both"]:
+                if self.surf is not None:
+                    self.surf.remove()
+                if self.ax_num is not None:
+                    self.surf = self.ax_num.plot_surface(  # type: ignore
+                        X, Y, self.config.height_scale * u_current, **self.surf_kwargs
+                    )
+
+            # Update contour plots (2D and both modes)
+            if (
+                self.config.viz_mode in ["2d", "both"]
+                and self.ax_contour_num is not None
+            ):
+                if self.contour_num is not None:
+                    self.contour_num.remove()
+                self.contour_num = self.ax_contour_num.contourf(
+                    X, Y, u_current, levels=20, cmap="RdBu_r"
                 )
 
             # Update phase toggling if in state
@@ -278,11 +388,33 @@ class Visualizer3D:
                         self.wf_pos.set_visible(False)  # type: ignore
                     if self.wf_neg is not None:
                         self.wf_neg.set_visible(True)  # type: ignore
+                    # Update analytical 2D contour for negative phase
+                    if (
+                        self.config.viz_mode in ["2d", "both"]
+                        and self.u_star_neg is not None
+                        and self.ax_contour_ref is not None
+                    ):
+                        if self.contour_ref is not None:
+                            self.contour_ref.remove()
+                        self.contour_ref = self.ax_contour_ref.contourf(
+                            X, Y, self.u_star_neg, levels=20, cmap="RdBu_r"
+                        )
                 else:
                     if self.wf_pos is not None:
                         self.wf_pos.set_visible(True)  # type: ignore
                     if self.wf_neg is not None:
                         self.wf_neg.set_visible(False)  # type: ignore
+                    # Update analytical 2D contour for positive phase
+                    if (
+                        self.config.viz_mode in ["2d", "both"]
+                        and self.u_star_pos is not None
+                        and self.ax_contour_ref is not None
+                    ):
+                        if self.contour_ref is not None:
+                            self.contour_ref.remove()
+                        self.contour_ref = self.ax_contour_ref.contourf(
+                            X, Y, self.u_star_pos, levels=20, cmap="RdBu_r"
+                        )
 
             # Update boundary lines if provided
             if "boundary_lines_num_z" in state and self.boundary_lines_num:
@@ -299,11 +431,20 @@ class Visualizer3D:
             if "time_text" in state and self.time_text is not None:
                 self.time_text.set_text(state["time_text"])
 
-            # Update view angle if spinning
-            if self.config.spin and self.ax_num is not None and self.ax_ref is not None:
-                azim = self.config.azim + self.config.deg_per_sec * (frame / fps)
-                self.ax_num.view_init(elev=self.config.elev, azim=azim)  # type: ignore
-                self.ax_ref.view_init(elev=self.config.elev, azim=azim)  # type: ignore
+            # Update time display as title for 2D-only mode
+            if (
+                self.config.viz_mode == "2d"
+                and "time_text" in state
+                and self.ax_contour_num is not None
+            ):
+                self.ax_contour_num.set_title(state["time_text"], fontsize=10)
+
+            # Update view angle if spinning (3D modes only)
+            if self.config.spin and self.config.viz_mode in ["3d", "both"]:
+                if self.ax_num is not None and self.ax_ref is not None:
+                    azim = self.config.azim + self.config.deg_per_sec * (frame / fps)
+                    self.ax_num.view_init(elev=self.config.elev, azim=azim)  # type: ignore
+                    self.ax_ref.view_init(elev=self.config.elev, azim=azim)  # type: ignore
 
             return (self.surf, self.time_text)
 
@@ -320,6 +461,17 @@ class Visualizer3D:
     def show(self):
         """Display the animation interactively in a live window."""
         if self.fig:
+            # Maximize the window
+            manager = plt.get_current_fig_manager()
+            if manager is not None:
+                try:
+                    manager.window.showMaximized()  # type: ignore
+                except (AttributeError, TypeError):
+                    # Fallback for different backends
+                    try:
+                        manager.full_screen_toggle()  # type: ignore
+                    except (AttributeError, TypeError):
+                        pass  # Window manager doesn't support maximizing
             plt.show()
 
     def save(self):
